@@ -1,0 +1,4 @@
+interface:
+  display_name: "Find SOTA Papers"
+  short_description: "Find and verify current research papers"
+  default_prompt: "Use $find-sota-papers to find and verify the current SOTA papers for my research topic."

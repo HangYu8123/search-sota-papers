@@ -1,0 +1,30 @@
+{
+  "name": "find-sota-papers",
+  "version": "1.0.0",
+  "description": "Find and verify state-of-the-art research papers under explicit constraints.",
+  "author": {
+    "name": "Find SOTA Papers contributors"
+  },
+  "keywords": [
+    "research",
+    "papers",
+    "literature-search",
+    "sota"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Find SOTA Papers",
+    "shortDescription": "Find verified state-of-the-art research papers.",
+    "longDescription": "Search for current research papers, apply date and citation constraints, verify every link, and organize the results by technique or timeline.",
+    "developerName": "Find SOTA Papers contributors",
+    "category": "Productivity",
+    "capabilities": [
+      "Read",
+      "Web search"
+    ],
+    "defaultPrompt": [
+      "Find the current SOTA papers for my research topic.",
+      "Find recent papers and verify every citation and link."
+    ]
+  }
+}

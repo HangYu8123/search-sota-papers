@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Find SOTA Papers — Prompt Builder</title>
+<!--
+  "Find SOTA Papers" prompt builder — a single self-contained static page.
+  WHY: the find-sota-papers skill takes 13 constraints; typing them out by hand every
+  time is fiddly. Set them with fields and buttons here, copy the finished prompt.
+
+  - No build, no dependencies, no network, no server required. Double-click to open.
+  - READ-ONLY: it only builds text in the browser. It never writes to
+    skills/find-sota-papers/SKILL.md or any file on disk.
+  - The generated prompt is DELIBERATELY plain natural language. It must NOT carry a
+    "mode:" header or a numbered "Hard constraints" list — some agent harnesses read
+    that shape as a templated workflow trigger, and this is a skill invocation, not a
+    workflow request. The skill is matched via its own TRIGGER-bearing description.
+-->
+<style>
+  :root{
+    --bg:#f6f7f9; --panel:#ffffff; --ink:#1c2127; --muted:#5b6470; --line:#e2e6ea;
+    --accent:#3b5bdb; --accent-ink:#ffffff; --chip:#eef1f6; --chip-on:#3b5bdb;
+    --code-bg:#0f1320; --code-ink:#e6e9f2;
+    --radius:10px; --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0e1116; --panel:#171b22; --ink:#e6e9ef; --muted:#9aa4b2; --line:#262c36;
+      --accent:#5c7cff; --chip:#222834; --chip-on:#5c7cff; --code-bg:#0b0e16; --code-ink:#dfe4f0;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.5;font-size:15px}
+  .wrap{max-width:1080px;margin:0 auto;padding:24px 18px 64px}
+  header.top{display:flex;flex-wrap:wrap;align-items:baseline;gap:10px 14px;margin-bottom:6px}
+  header.top h1{font-size:22px;margin:0;letter-spacing:.2px}
+  header.top .sub{color:var(--muted);font-size:13px}
+  .privacy{color:var(--muted);font-size:12px;margin:2px 0 18px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media (max-width:880px){.grid{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px}
+  .panel h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 12px}
+  fieldset{border:0;margin:0 0 14px;padding:0}
+  legend{font-size:12px;color:var(--muted);padding:0;margin-bottom:6px;font-weight:600}
+  .seg{display:inline-flex;flex-wrap:wrap;gap:6px}
+  .seg label{position:relative;cursor:pointer}
+  .seg input{position:absolute;opacity:0;width:0;height:0}
+  .seg span{display:inline-block;padding:6px 12px;border:1px solid var(--line);border-radius:8px;
+            background:var(--chip);font-size:13px;font-family:var(--mono)}
+  .seg input:checked + span{background:var(--chip-on);color:var(--accent-ink);border-color:var(--chip-on);font-weight:600}
+  .seg input:focus-visible + span{outline:2px solid var(--accent);outline-offset:2px}
+  .field{margin-bottom:12px}
+  .field label{display:block;font-size:13px;font-weight:600;margin-bottom:4px}
+  .field .req{color:var(--accent);font-weight:400}
+  .field .opt{color:var(--muted);font-weight:400}
+  .field textarea,.field input{width:100%;font-family:var(--mono);font-size:13px;
+        padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
+  .field textarea{min-height:42px;resize:vertical}
+  .field textarea:focus-visible,.field input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+  .caps{display:flex;flex-wrap:wrap;gap:14px;align-items:center}
+  .cap{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+  .cap input{width:86px;font-family:var(--mono);font-size:13px;padding:6px 8px;
+        border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
+  .preview-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+  .preview-head h2{margin:0}
+  .btns{display:flex;flex-wrap:wrap;gap:8px}
+  button.act{appearance:none;border:1px solid var(--line);background:var(--chip);color:var(--ink);
+        padding:8px 14px;border-radius:8px;font-size:13px;cursor:pointer;font-family:inherit;font-weight:600}
+  button.act.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+  button.act:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  pre.preview{margin:0;background:var(--code-bg);color:var(--code-ink);border-radius:8px;padding:14px;
+        font-family:var(--mono);font-size:12.5px;white-space:pre-wrap;word-break:break-word;max-height:560px;overflow:auto}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);
+        background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:999px;font-size:13px;
+        opacity:0;pointer-events:none;transition:opacity .18s,transform .18s;z-index:9}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  footer.foot{margin-top:24px;color:var(--muted);font-size:12px;text-align:center}
+  footer.foot code{font-family:var(--mono)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>Find SOTA Papers</h1>
+    <span class="sub">Set your constraints, copy the prompt.</span>
+  </header>
+  <p class="privacy">Runs entirely in your browser — nothing you type is sent anywhere. Builds a prompt for the
+    <code>find-sota-papers</code> skill (<code>skills/find-sota-papers/SKILL.md</code>); no files are modified.</p>
+
+  <div class="grid">
+    <!-- LEFT: constraints -->
+    <section class="panel">
+      <h2>1 · What to find</h2>
+
+      <div class="field">
+        <label for="in-field">Field <span class="req">· required</span></label>
+        <input id="in-field" type="text" placeholder="e.g. AI, Robotics, CV, NLP" autocomplete="off">
+      </div>
+
+      <div class="field">
+        <label for="in-topics">Topics <span class="req">· required</span></label>
+        <textarea id="in-topics" rows="2" placeholder="e.g. vision-language-action models for manipulation"></textarea>
+      </div>
+
+      <div class="field">
+        <label for="in-sota">SOTA requirements <span class="req">· required</span></label>
+        <textarea id="in-sota" rows="2" placeholder="e.g. top success rate on RLBench / CALVIN, or 'current best-performing approaches'"></textarea>
+      </div>
+
+      <div class="field">
+        <label for="in-other">Other requirements <span class="opt">· optional</span></label>
+        <textarea id="in-other" rows="2" placeholder="e.g. must have public code; open weights; real-robot results"></textarea>
+      </div>
+
+      <h2 style="margin-top:18px">2 · Filters</h2>
+
+      <div class="field">
+        <label for="in-since">No earlier than <span class="opt">· optional</span></label>
+        <input id="in-since" type="text" placeholder="YYYY-MM or YYYY-MM-DD, e.g. 2024-01" autocomplete="off">
+      </div>
+
+      <fieldset>
+        <legend>minimum citations <span style="font-weight:400">(optional — blank = no floor)</span></legend>
+        <div class="caps">
+          <label class="cap">total <input id="in-cite-total" type="number" min="0" step="1" placeholder="e.g. 50"></label>
+          <label class="cap">per month <input id="in-cite-month" type="number" min="0" step="0.1" placeholder="e.g. 2"></label>
+        </div>
+      </fieldset>
+
+      <!-- Stays inside this same left <section class="panel">: wire() binds the delegated
+           input/change listeners to querySelector(".panel"), which is the FIRST panel only.
+           A control in a new panel would never refresh the preview. -->
+      <fieldset>
+        <legend>institutions</legend>
+        <div class="seg" id="seg-institutions" role="radiogroup" aria-label="institutions">
+          <label><input type="radio" name="institutions" value="any" checked><span>any</span></label>
+          <label><input type="radio" name="institutions" value="reputable"><span>reputable only</span></label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>number of papers</legend>
+        <div class="caps">
+          <label class="cap">count <input id="in-count" type="number" min="1" step="1" value="30"></label>
+        </div>
+      </fieldset>
+
+      <h2 style="margin-top:18px">3 · Output shape</h2>
+
+      <fieldset>
+        <legend>list by</legend>
+        <div class="seg" id="seg-list" role="radiogroup" aria-label="list by">
+          <label><input type="radio" name="listby" value="category" checked><span>category</span></label>
+          <label><input type="radio" name="listby" value="timeline"><span>timeline</span></label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>present as</legend>
+        <div class="seg" id="seg-present" role="radiogroup" aria-label="present as">
+          <label><input type="radio" name="present" value="minimalism" checked><span>minimalism</span></label>
+          <label><input type="radio" name="present" value="abstract"><span>abstract</span></label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>include classic work</legend>
+        <div class="seg" id="seg-classic" role="radiogroup" aria-label="include classic work">
+          <label><input type="radio" name="classic" value="yes" checked><span>yes</span></label>
+          <label><input type="radio" name="classic" value="no"><span>no</span></label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>multi-agent search</legend>
+        <div class="seg" id="seg-multi-agent" role="radiogroup" aria-label="multi-agent search">
+          <label><input type="radio" name="multiagent" value="auto" checked><span>auto</span></label>
+          <label><input type="radio" name="multiagent" value="yes"><span>yes</span></label>
+          <label><input type="radio" name="multiagent" value="no"><span>no</span></label>
+        </div>
+      </fieldset>
+    </section>
+
+    <!-- RIGHT: prompt -->
+    <section class="panel">
+      <div class="preview-head">
+        <h2>4 · Prompt</h2>
+        <div class="btns">
+          <button class="act primary" id="btnCopy" type="button">Copy</button>
+          <button class="act" id="btnDownload" type="button">Download .md</button>
+          <button class="act" id="btnReset" type="button">Clear fields</button>
+        </div>
+      </div>
+      <pre class="preview" id="preview" aria-live="polite"></pre>
+    </section>
+  </div>
+
+  <footer class="foot">
+    Builds prompts for <code>skills/find-sota-papers/SKILL.md</code>.
+  </footer>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+"use strict";
+
+// Glosses ride along with the chosen value on the same line, so the copied prompt is
+// unambiguous on its own (it still reads correctly if pasted somewhere the skill's
+// own definitions aren't loaded).
+var LIST_GLOSS = {
+  category: "group the papers by category / technique track",
+  timeline: "reverse-chronological along a timeline"
+};
+var PRESENT_GLOSS = {
+  minimalism: "title (linked), then one sentence each for intuition, core contribution, experiment setup, and results vs. named baselines",
+  abstract: "title (linked), then a brief 2-4 sentence introduction to the paper"
+};
+var CLASSIC_GLOSS = {
+  yes: "if the selected SOTA papers share a common prior classic work, include it (clearly labeled)",
+  no: "SOTA papers only"
+};
+var INSTITUTIONS_GLOSS = {
+  any: "no affiliation filter",
+  reputable: "keep only papers with at least one author affiliated with an institution on the skill's curated reputable-institutions accept-list, indexed by topic in references/topics/institutions.md; apply the general list, plus the matched topic's list file when the topic has one, and report institution drops separately from papers whose affiliation could not be established"
+};
+var MULTI_AGENT_GLOSS = {
+  auto: "use real subagents for parallel discovery and validation when available and useful; otherwise run sequentially",
+  yes: "request bounded parallel discovery and validation with real subagents; fall back sequentially if unavailable",
+  no: "do not create subagents; run the same discovery and validation workflow sequentially"
+};
+
+function val(id){ return (document.getElementById(id).value || "").trim(); }
+function radio(name){ return document.querySelector('input[name="' + name + '"]:checked').value; }
+
+// Required fields keep an angle-bracket placeholder when blank, so the prompt stays a
+// usable skeleton instead of silently dropping a constraint the skill needs.
+function req(id, placeholder){ return val(id) || "<" + placeholder + ">"; }
+
+function buildPrompt(){
+  var lines = [];
+  lines.push("Use the find-sota-papers skill to find state-of-the-art research papers matching the constraints below.");
+  lines.push("");
+  lines.push("Field: " + req("in-field", "field"));
+  lines.push("Topics: " + req("in-topics", "topics"));
+  lines.push("SOTA requirements: " + req("in-sota", "what SOTA means here"));
+
+  var other = val("in-other");
+  if(other) lines.push("Other requirements: " + other);
+
+  var since = val("in-since");
+  if(since) lines.push("No earlier than: " + since);
+
+  var total = val("in-cite-total");
+  if(total) lines.push("Minimum citations (total): " + total);
+
+  var perMonth = val("in-cite-month");
+  if(perMonth) lines.push("Minimum citations (per month since publication): " + perMonth);
+
+  var institutions = radio("institutions");
+  lines.push("Institutions: " + institutions + " — " + INSTITUTIONS_GLOSS[institutions]);
+
+  var count = val("in-count") || "30";
+  lines.push("Number of papers: " + count);
+
+  var listBy = radio("listby");
+  lines.push("List by: " + listBy + " — " + LIST_GLOSS[listBy]);
+
+  var present = radio("present");
+  lines.push("Present as: " + present + " — " + PRESENT_GLOSS[present]);
+
+  var classic = radio("classic");
+  lines.push("Include classic work: " + classic + " — " + CLASSIC_GLOSS[classic]);
+
+  var multiAgent = radio("multiagent");
+  lines.push("Multi-agent: " + multiAgent + " — " + MULTI_AGENT_GLOSS[multiAgent]);
+
+  lines.push("");
+  lines.push("Every paper must include a working link. Verify each paper resolves to a real arXiv / DOI / Semantic Scholar entry before listing it — do not list papers from memory and do not fabricate any title, author, link, or citation count. Do not pad the list to reach the requested count: if fewer papers survive verification, return those and state the shortfall and why.");
+  return lines.join("\n");
+}
+
+function renderPreview(){
+  document.getElementById("preview").textContent = buildPrompt();
+}
+
+function toast(msg){
+  var t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toast._t);
+  toast._t = setTimeout(function(){ t.classList.remove("show"); }, 1600);
+}
+
+// Clipboard: prefer the async API only in a secure context where it actually exists
+// (it is flaky/absent on file://), else fall back to execCommand, so that
+// double-clicking this file open still copies.
+async function copyText(text){
+  if(navigator.clipboard && window.isSecureContext){
+    try { await navigator.clipboard.writeText(text); return true; }
+    catch(e){ /* fall through */ }
+  }
+  var ta = document.createElement("textarea");
+  ta.value = text;
+  ta.setAttribute("readonly","");
+  ta.style.position = "fixed";
+  ta.style.top = "-9999px";
+  document.body.appendChild(ta);
+  ta.select();
+  ta.setSelectionRange(0, ta.value.length);
+  var ok = false;
+  try { ok = document.execCommand("copy"); } catch(e){ ok = false; }
+  document.body.removeChild(ta);
+  return ok;
+}
+
+function downloadMd(){
+  var blob = new Blob([buildPrompt()], { type: "text/markdown" });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement("a");
+  a.href = url; a.download = "find_sota_papers_request.md";
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 0);
+}
+
+function wire(){
+  // One delegated listener per event type covers every control in the left panel,
+  // including radios (change) and text/number inputs (input).
+  var panel = document.querySelector(".panel");
+  ["input","change"].forEach(function(ev){
+    panel.addEventListener(ev, renderPreview);
+  });
+
+  document.getElementById("btnCopy").addEventListener("click", async function(){
+    var ok = await copyText(buildPrompt());
+    toast(ok ? "Copied to clipboard" : "Press Ctrl/Cmd-C to copy");
+  });
+  document.getElementById("btnDownload").addEventListener("click", downloadMd);
+  document.getElementById("btnReset").addEventListener("click", function(){
+    ["in-field","in-topics","in-sota","in-other","in-since","in-cite-total","in-cite-month"]
+      .forEach(function(id){ document.getElementById(id).value = ""; });
+    document.getElementById("in-count").value = "30";
+    document.querySelector('input[name="listby"][value="category"]').checked = true;
+    document.querySelector('input[name="present"][value="minimalism"]').checked = true;
+    document.querySelector('input[name="institutions"][value="any"]').checked = true;
+    document.querySelector('input[name="classic"][value="yes"]').checked = true;
+    document.querySelector('input[name="multiagent"][value="auto"]').checked = true;
+    renderPreview();
+    toast("Fields cleared");
+  });
+}
+
+wire();
+renderPreview();
+</script>
+</body>
+</html>

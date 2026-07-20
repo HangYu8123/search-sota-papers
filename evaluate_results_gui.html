@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Find SOTA Papers — Run Evaluation</title>
+<!--
+  Evaluation harness for find-sota-papers runs. Single self-contained static page.
+
+  Load a result file from results/, score it, save the record to evaluations/.
+  The schema, scales, weights and reward math are specified in EVALUATION.md —
+  that file is the specification, this page is its implementation. Keep the
+  component keys in REWARD_SPEC identical to the table in EVALUATION.md, or the
+  archive stops being comparable across records.
+
+  Saving, in order of preference:
+    1. POST to the local helper  (python serve_evaluations.py) — writes evaluations/ directly
+    2. File System Access API    (Chrome/Edge; pick the evaluations folder once)
+    3. Plain download            (always works; file lands in Downloads)
+-->
+<style>
+  :root{
+    --bg:#f6f7f9; --panel:#ffffff; --ink:#1c2127; --muted:#5b6470; --line:#e2e6ea;
+    --accent:#3b5bdb; --accent-ink:#ffffff; --chip:#eef1f6; --chip-on:#3b5bdb;
+    --code-bg:#0f1320; --code-ink:#e6e9f2;
+    --good:#2f9e44; --warn:#e8590c; --bad:#c92a2a;
+    --radius:10px; --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0e1116; --panel:#171b22; --ink:#e6e9ef; --muted:#9aa4b2; --line:#262c36;
+      --accent:#5c7cff; --chip:#222834; --chip-on:#5c7cff; --code-bg:#0b0e16; --code-ink:#dfe4f0;
+      --good:#51cf66; --warn:#ff922b; --bad:#ff6b6b;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.5;font-size:15px}
+  .wrap{max-width:1180px;margin:0 auto;padding:24px 18px 64px}
+  header.top{display:flex;flex-wrap:wrap;align-items:baseline;gap:10px 14px;margin-bottom:6px}
+  header.top h1{font-size:22px;margin:0;letter-spacing:.2px}
+  header.top .sub{color:var(--muted);font-size:13px}
+  .privacy{color:var(--muted);font-size:12px;margin:2px 0 18px}
+  .grid{display:grid;grid-template-columns:1fr 380px;gap:18px;align-items:start}
+  @media (max-width:980px){.grid{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:18px}
+  .panel h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 12px}
+  .panel h2 .n{color:var(--accent);font-weight:700}
+  .hint{color:var(--muted);font-size:12px;margin:-6px 0 12px}
+  fieldset{border:0;margin:0 0 16px;padding:0}
+  legend{font-size:13px;padding:0;margin-bottom:6px;font-weight:600}
+  .legend-note{font-weight:400;color:var(--muted);font-size:12px}
+  .seg{display:inline-flex;flex-wrap:wrap;gap:6px}
+  .seg label{position:relative;cursor:pointer}
+  .seg input{position:absolute;opacity:0;width:0;height:0}
+  .seg span{display:inline-block;padding:6px 12px;border:1px solid var(--line);border-radius:8px;
+            background:var(--chip);font-size:13px;font-family:var(--mono)}
+  .seg input:checked + span{background:var(--chip-on);color:var(--accent-ink);border-color:var(--chip-on);font-weight:600}
+  .seg input:focus-visible + span{outline:2px solid var(--accent);outline-offset:2px}
+  .seg.tiny span{padding:3px 8px;font-size:12px}
+  .scale{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .scale .end{color:var(--muted);font-size:11.5px;white-space:nowrap}
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:13px;font-weight:600;margin-bottom:4px}
+  .field .req{color:var(--accent);font-weight:400}
+  .field .opt{color:var(--muted);font-weight:400}
+  .field textarea,.field input,.field select{width:100%;font-family:var(--mono);font-size:13px;
+        padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
+  .field textarea{min-height:64px;resize:vertical}
+  .field textarea:focus-visible,.field input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+  .field textarea.missing{border-color:var(--warn)}
+  .drop{border:1.5px dashed var(--line);border-radius:var(--radius);padding:22px;text-align:center;color:var(--muted);
+        font-size:13px;cursor:pointer;background:var(--bg)}
+  .drop.over{border-color:var(--accent);color:var(--accent)}
+  .meta{font-family:var(--mono);font-size:12px;color:var(--muted);margin:0}
+  .meta b{color:var(--ink);font-weight:600}
+  .meta div{padding:2px 0}
+  .rows{width:100%;border-collapse:collapse;font-size:12.5px}
+  .rows th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);
+        font-weight:600;padding:6px 6px;border-bottom:1px solid var(--line)}
+  .rows td{padding:7px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+  .rows tr:last-child td{border-bottom:0}
+  .rows .idx{color:var(--muted);font-family:var(--mono);width:26px}
+  .rows .ttl{max-width:340px}
+  .rows .ttl a{color:inherit;text-decoration:none;border-bottom:1px solid var(--line)}
+  .rows .ttl a:hover{border-bottom-color:var(--accent);color:var(--accent)}
+  .rows .cid{display:block;font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:2px}
+  .bulk{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .btns{display:flex;flex-wrap:wrap;gap:8px}
+  button.act{appearance:none;border:1px solid var(--line);background:var(--chip);color:var(--ink);
+        padding:8px 14px;border-radius:8px;font-size:13px;cursor:pointer;font-family:inherit;font-weight:600}
+  button.act.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+  button.act.small{padding:4px 10px;font-size:12px;font-weight:500}
+  button.act:disabled{opacity:.45;cursor:not-allowed}
+  button.act:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .sticky{position:sticky;top:18px}
+  .reward{text-align:center;padding:6px 0 14px}
+  .reward .num{font-size:40px;font-weight:700;font-family:var(--mono);letter-spacing:-1px;line-height:1.1}
+  .reward .lbl{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+  .reward .cover{font-size:12px;color:var(--muted);margin-top:4px}
+  .veto{background:var(--bad);color:#fff;border-radius:8px;padding:8px 12px;font-size:12.5px;margin-bottom:12px;font-weight:600}
+  .comp{font-size:11.5px;font-family:var(--mono);margin-bottom:5px}
+  .comp .top{display:flex;justify-content:space-between;gap:8px;color:var(--muted)}
+  .comp .top b{color:var(--ink);font-weight:600}
+  .bar{height:4px;background:var(--chip);border-radius:2px;overflow:hidden;margin-top:2px}
+  .bar i{display:block;height:100%;background:var(--accent)}
+  .tier-essential i{background:var(--accent)}
+  .tier-pitfall i{background:var(--warn)}
+  .tier-important i{background:var(--good)}
+  .tier-optional i{background:var(--muted)}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);
+        background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:999px;font-size:13px;
+        opacity:0;pointer-events:none;transition:opacity .18s,transform .18s;z-index:9;max-width:80vw;text-align:center}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .gate{opacity:.4;pointer-events:none}
+  footer.foot{margin-top:8px;color:var(--muted);font-size:12px;text-align:center}
+  footer.foot code{font-family:var(--mono)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>Run Evaluation</h1>
+    <span class="sub">Score a <code>find-sota-papers</code> run, save the feedback record.</span>
+  </header>
+  <p class="privacy">Runs entirely in your browser. Reads a result file from <code>results/</code> and writes a
+    <code>find-sota-papers/eval@1</code> record to <code>evaluations/</code>. Schema, weights and reward math:
+    <code>EVALUATION.md</code>.</p>
+
+  <div class="grid">
+    <div>
+      <!-- 1 · load -->
+      <section class="panel">
+        <h2><span class="n">1</span> · Run under review</h2>
+        <div class="drop" id="drop" tabindex="0" role="button">
+          Drop a <b>results/*.md</b> file here, or click to choose one.
+        </div>
+        <input type="file" id="file" accept=".md,text/markdown" hidden>
+        <p class="meta" id="runmeta" style="margin-top:12px"></p>
+      </section>
+
+      <div id="form" class="gate">
+        <!-- 2 · the four scales -->
+        <section class="panel">
+          <h2><span class="n">2</span> · Ratings</h2>
+          <p class="hint">The headline signals. Time is a <b>bipolar</b> scale — 3 is best, both ends are failures.</p>
+
+          <fieldset>
+            <legend>Search result satisfaction</legend>
+            <div class="scale">
+              <span class="end">very unsatisfied</span>
+              <div class="seg tiny" data-scale="satisfaction"></div>
+              <span class="end">very satisfied</span>
+            </div>
+          </fieldset>
+
+          <div class="field">
+            <label for="reason">Reason for that rating <span class="req">· required</span></label>
+            <textarea id="reason" placeholder="What made it good or bad? Be concrete — this is the field you will actually reread later."></textarea>
+          </div>
+
+          <fieldset>
+            <legend>Time cost <span class="legend-note">— 3 = about right</span></legend>
+            <div class="scale">
+              <span class="end">far too long</span>
+              <div class="seg tiny" data-scale="time_cost"></div>
+              <span class="end">far too short</span>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>SOTA-ness of the selection</legend>
+            <div class="scale">
+              <span class="end">too old</span>
+              <div class="seg tiny" data-scale="sota_freshness"></div>
+              <span class="end">genuinely SOTA</span>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>Token cost</legend>
+            <div class="scale">
+              <span class="end">far too much</span>
+              <div class="seg tiny" data-scale="token_cost"></div>
+              <span class="end">efficient</span>
+            </div>
+          </fieldset>
+        </section>
+
+        <!-- 3 · rubric -->
+        <section class="panel">
+          <h2><span class="n">3</span> · Quality rubric</h2>
+          <p class="hint">Dimensions from ScholarQABench and DeepResearch Bench RACE. A run can be broad and shallow,
+            or deep and off-brief — one satisfaction score cannot tell them apart.</p>
+          <div id="rubric"></div>
+        </section>
+
+        <!-- 4 · verifiable checks -->
+        <section class="panel">
+          <h2><span class="n">4</span> · Verifiable checks</h2>
+          <p class="hint">Binary and ground-truthable — no rater drift. Leave any as <code>skip</code> and it drops out
+            of the reward entirely rather than counting against the run.</p>
+          <div id="checks"></div>
+        </section>
+
+        <!-- 5 · per-paper -->
+        <section class="panel">
+          <h2><span class="n">5</span> · Per-paper labels</h2>
+          <p class="hint">Localizes the failure. Bulk-set, then correct the exceptions.
+            <span id="itemsrc"></span></p>
+          <div class="bulk">
+            <button class="act small" type="button" data-bulk="relevant">Mark all relevant</button>
+            <button class="act small" type="button" data-bulk="clear">Clear labels</button>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="rows" id="items"></table>
+          </div>
+        </section>
+
+        <!-- 6 · preference + freeform -->
+        <section class="panel">
+          <h2><span class="n">6</span> · Preference &amp; notes</h2>
+
+          <fieldset>
+            <legend>Compare against another run <span class="legend-note">— optional, for preference pairs</span></legend>
+            <div class="field">
+              <label for="vsrun" class="opt">Other run id</label>
+              <input id="vsrun" type="text" placeholder="e.g. vlm-manipulation_2026-07-12" autocomplete="off">
+            </div>
+            <div class="seg tiny" id="verdict" role="radiogroup" aria-label="preference verdict">
+              <label><input type="radio" name="verdict" value=""><span>no comparison</span></label>
+              <label><input type="radio" name="verdict" value="this"><span>this run better</span></label>
+              <label><input type="radio" name="verdict" value="other"><span>other better</span></label>
+              <label><input type="radio" name="verdict" value="tie"><span>tie</span></label>
+              <label><input type="radio" name="verdict" value="both_bad"><span>both bad</span></label>
+            </div>
+          </fieldset>
+
+          <div class="field">
+            <label for="missing">What was missing? <span class="opt">· optional</span></label>
+            <textarea id="missing" placeholder="Papers, subfields, or angles the run never surfaced. Nothing else in this form can capture a recall failure — the result file cannot report what it never found."></textarea>
+          </div>
+
+          <div class="field">
+            <label for="improve">What should the skill do differently? <span class="opt">· optional</span></label>
+            <textarea id="improve" placeholder="e.g. check the benchmark leaderboard before the arXiv sweep."></textarea>
+          </div>
+
+          <fieldset>
+            <legend>Would you run this again for a real task?</legend>
+            <div class="seg tiny" id="reuse" role="radiogroup" aria-label="would reuse">
+              <label><input type="radio" name="reuse" value=""><span>—</span></label>
+              <label><input type="radio" name="reuse" value="yes"><span>yes</span></label>
+              <label><input type="radio" name="reuse" value="no"><span>no</span></label>
+            </div>
+          </fieldset>
+
+          <div class="field" style="max-width:260px">
+            <label for="citecount">How many of these would you actually cite? <span class="opt">· optional</span></label>
+            <input id="citecount" type="number" min="0" step="1" placeholder="e.g. 6">
+          </div>
+
+          <div class="field" style="max-width:260px">
+            <label for="rater">Your name / handle</label>
+            <input id="rater" type="text" placeholder="used in the filename" autocomplete="off">
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <!-- RIGHT: reward + save -->
+    <div>
+      <section class="panel sticky">
+        <h2>Reward</h2>
+        <div id="vetobox"></div>
+        <div class="reward">
+          <div class="num" id="rnum">—</div>
+          <div class="lbl">weighted scalar</div>
+          <div class="cover" id="rcover">load a run to begin</div>
+        </div>
+        <div id="comps"></div>
+        <div class="btns" style="margin-top:16px">
+          <button class="act primary" id="btnSave" type="button" disabled>Save to evaluations/</button>
+          <button class="act" id="btnDownload" type="button" disabled>Download .json</button>
+        </div>
+        <p class="hint" id="savehint" style="margin-top:10px;margin-bottom:0"></p>
+      </section>
+    </div>
+  </div>
+
+  <footer class="foot">
+    Schema <code>find-sota-papers/eval@1</code> — see <code>EVALUATION.md</code>.
+  </footer>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+"use strict";
+
+/* ---------------------------------------------------------------------------
+ * Spec (mirrors the table in EVALUATION.md — keep keys and weights in sync)
+ * ------------------------------------------------------------------------ */
+
+var TIER_WEIGHT = { essential:1.0, pitfall:0.9, important:0.7, optional:0.3 };
+
+var RUBRIC_DIMS = [
+  { key:"relevance",             label:"Relevance",             tier:"essential", ends:["off-topic","precisely on brief"] },
+  { key:"instruction_following", label:"Instruction following", tier:"pitfall",   ends:["ignored constraints","honored every constraint"] },
+  { key:"coverage",              label:"Coverage",              tier:"important", ends:["big gaps","comprehensive"] },
+  { key:"depth",                 label:"Depth",                 tier:"important", ends:["surface skim","deep and specific"] },
+  { key:"organization",          label:"Organization",          tier:"optional",  ends:["disorganized","well structured"] },
+  { key:"readability",           label:"Readability",           tier:"optional",  ends:["hard to read","effortless"] }
+];
+
+var CHECKS = [
+  { key:"links_resolve",            label:"Every link resolves",                 note:"spot-check a few" },
+  { key:"no_fabricated_citation",   label:"No fabricated paper or citation",     note:"a 'no' vetoes the run" },
+  { key:"no_duplicates",            label:"No duplicate papers",                 note:"" },
+  { key:"date_floor_respected",     label:"Date floor respected",                note:"" },
+  { key:"count_or_shortfall_honest",label:"Count met, or shortfall stated",      note:"" },
+  { key:"constraints_honored",      label:"Listing / presentation as requested", note:"" }
+];
+
+var ITEM_FLAGS = ["not-sota","too-old","off-topic","duplicate","link-broken","wrong-metric","preprint-only"];
+
+/* ---------------------------------------------------------------------------
+ * State
+ * ------------------------------------------------------------------------ */
+
+var state = {
+  run: null,            // parsed result file
+  raw: "",              // its full text, kept for the DPO `chosen`/`rejected` view
+  loadedAt: null,       // starts the Label-Studio-style lead_time clock
+  scales: { satisfaction:null, time_cost:null, sota_freshness:null, token_cost:null },
+  rubric: {},
+  checks: {},
+  items: [],
+  best: null,
+  worst: null
+};
+RUBRIC_DIMS.forEach(function(d){ state.rubric[d.key] = null; });
+CHECKS.forEach(function(c){ state.checks[c.key] = null; });
+
+var dirHandle = null;   // File System Access directory, once chosen
+var helperUrl = null;   // local save helper, once detected
+
+/* ---------------------------------------------------------------------------
+ * Result-file parsing
+ *
+ * A deliberately small YAML subset: the frontmatter written by the skill is
+ * two levels of plain maps plus one block scalar (`prompt: |`). A general YAML
+ * parser would be a dependency, and this page has none.
+ * ------------------------------------------------------------------------ */
+
+function parseScalar(v){
+  if(v === "" || v === "null" || v === "~") return null;
+  if(v === "true") return true;
+  if(v === "false") return false;
+  if(/^-?\d+$/.test(v)) return parseInt(v,10);
+  if(/^-?\d*\.\d+$/.test(v)) return parseFloat(v);
+  // Strip one layer of matching quotes, if present.
+  var m = v.match(/^"(.*)"$/) || v.match(/^'(.*)'$/);
+  return m ? m[1] : v;
+}
+
+function parseFrontmatter(text){
+  var m = text.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  if(!m) return null;
+  var lines = m[1].split(/\r?\n/);
+  var root = {};
+  var stack = [{ indent:-1, obj:root }];
+  var block = null;   // active `key: |` block scalar
+
+  for(var i=0;i<lines.length;i++){
+    var line = lines[i];
+    if(block){
+      // A block scalar runs until a line indents back to or past its owner.
+      if(line.trim() === "" || /^\s/.test(line) && (line.match(/^ */)[0].length > block.indent)){
+        block.buf.push(line.slice(Math.min(block.indent+2, line.match(/^ */)[0].length)));
+        continue;
+      }
+      block.target[block.key] = block.buf.join("\n").replace(/\s+$/,"");
+      block = null;
+    }
+    if(line.trim() === "" || /^\s*#/.test(line)) continue;
+
+    var indent = line.match(/^ */)[0].length;
+    var body = line.trim();
+
+    // Inline list item, e.g. "- foo" — not used by the schema; ignore.
+    if(body.charAt(0) === "-") continue;
+
+    var idx = body.indexOf(":");
+    if(idx < 0) continue;
+    var key = body.slice(0, idx).trim();
+    var val = body.slice(idx+1).trim();
+
+    while(stack.length > 1 && indent <= stack[stack.length-1].indent) stack.pop();
+    var parent = stack[stack.length-1].obj;
+
+    if(val === "|" || val === ">"){
+      block = { key:key, target:parent, indent:indent, buf:[] };
+    } else if(val === ""){
+      parent[key] = {};
+      stack.push({ indent:indent, obj:parent[key] });
+    } else if(val.charAt(0) === "{"){
+      // Flow map, e.g. "{found: 96, merged: 71}"
+      var flow = {};
+      val.slice(1, val.lastIndexOf("}")).split(",").forEach(function(pair){
+        var p = pair.indexOf(":");
+        if(p > 0) flow[pair.slice(0,p).trim()] = parseScalar(pair.slice(p+1).trim());
+      });
+      parent[key] = flow;
+    } else {
+      parent[key] = parseScalar(val);
+    }
+  }
+  if(block) block.target[block.key] = block.buf.join("\n").replace(/\s+$/,"");
+  return root;
+}
+
+function sectionBody(text, heading){
+  // Everything under `## heading` up to the next `## ` at the same level.
+  var re = new RegExp("^##\\s+" + heading.replace(/[.*+?^${}()|[\]\\]/g,"\\$&") + "\\s*$", "mi");
+  var m = re.exec(text);
+  if(!m) return "";
+  var rest = text.slice(m.index + m[0].length);
+  var next = rest.search(/^##\s+/m);
+  return next < 0 ? rest : rest.slice(0, next);
+}
+
+function parseLedger(text){
+  var body = sectionBody(text, "Verification ledger");
+  if(!body.trim()) return [];
+  var rows = body.split(/\r?\n/).filter(function(l){ return /^\s*\|/.test(l); });
+  if(rows.length < 2) return [];
+
+  function cells(line){
+    return line.replace(/^\s*\|/,"").replace(/\|\s*$/,"").split("|").map(function(c){ return c.trim(); });
+  }
+  // Map by header name rather than position — a column added later shouldn't
+  // silently shift every field by one.
+  var head = cells(rows[0]).map(function(h){ return h.toLowerCase().replace(/[^a-z_]/g,""); });
+  var col = {};
+  head.forEach(function(h,i){ if(h) col[h] = i; });
+
+  var out = [];
+  for(var i=1;i<rows.length;i++){
+    var c = cells(rows[i]);
+    if(!c.length || /^-+$/.test(c[0]) || c.every(function(x){ return /^:?-+:?$/.test(x) || x===""; })) continue;
+    var title = col.title != null ? c[col.title] : "";
+    var link  = col.link  != null ? c[col.link]  : "";
+    var lm = (title + " " + link).match(/\((https?:\/\/[^)\s]+)\)/) || link.match(/(https?:\/\/\S+)/);
+    out.push({
+      candidate_id: col.candidate_id != null ? c[col.candidate_id] : ("row-" + i),
+      title: title.replace(/^\*\*\[/,"").replace(/\]\(.*$/,"").replace(/\*\*/g,""),
+      url: lm ? lm[1] : "",
+      label: null, link_ok: true, flags: []
+    });
+  }
+  return out;
+}
+
+function parsePapersFallback(text){
+  // Used when a result file predates the ledger section: pull linked titles
+  // from `## Papers`. Ordering is preserved; candidate ids are synthesized.
+  var body = sectionBody(text, "Papers") || text;
+  var out = [], seen = {}, m;
+  var re = /\*\*\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)\*\*/g;
+  while((m = re.exec(body))){
+    if(seen[m[2]]) continue;
+    seen[m[2]] = true;
+    out.push({ candidate_id:m[2], title:m[1], url:m[2], label:null, link_ok:true, flags:[] });
+  }
+  return out;
+}
+
+function loadResult(text, filename){
+  var fm = parseFrontmatter(text);
+  if(!fm || !fm.run_id){
+    toast("That file has no find-sota-papers frontmatter — is it a results/*.md file?");
+    return;
+  }
+  var items = parseLedger(text);
+  var src = "Parsed " + items.length + " rows from the verification ledger.";
+  if(!items.length){
+    items = parsePapersFallback(text);
+    src = items.length
+      ? "No ledger section — fell back to " + items.length + " linked titles under ## Papers."
+      : "No papers found to label.";
+  }
+  state.run = fm;
+  state.raw = text;
+  state.file = filename;
+  state.items = items;
+  state.best = state.worst = null;
+  state.loadedAt = new Date();
+
+  renderRunMeta();
+  document.getElementById("itemsrc").textContent = src;
+  renderItems();
+  document.getElementById("form").classList.remove("gate");
+  document.getElementById("btnSave").disabled = false;
+  document.getElementById("btnDownload").disabled = false;
+  recompute();
+  toast("Loaded " + fm.run_id);
+}
+
+/* ---------------------------------------------------------------------------
+ * Reward — explicit weighted mean, per EVALUATION.md
+ * ------------------------------------------------------------------------ */
+
+function lin(v){ return (v - 1) / 4; }                 // unipolar 1..5 → 0..1
+function bipolar(v){ return 1 - Math.abs(v - 3) / 2; } // 3 is best
+
+function computeReward(){
+  var comps = [];
+  function push(key, tier, norm){
+    if(norm === null || norm === undefined || isNaN(norm)) return;
+    comps.push({ key:key, tier:tier, weight:TIER_WEIGHT[tier], normalized:Math.max(0, Math.min(1, norm)) });
+  }
+
+  push("satisfaction",   "essential", state.scales.satisfaction   === null ? null : lin(state.scales.satisfaction));
+  push("sota_freshness", "essential", state.scales.sota_freshness === null ? null : lin(state.scales.sota_freshness));
+  RUBRIC_DIMS.forEach(function(d){
+    push("rubric." + d.key, d.tier, state.rubric[d.key] === null ? null : lin(state.rubric[d.key]));
+  });
+  CHECKS.forEach(function(c){
+    if(state.checks[c.key] === null) return;   // skipped → out of both sums
+    push("checks." + c.key, "pitfall", state.checks[c.key] ? 1 : 0);
+  });
+
+  var labeled = state.items.filter(function(it){ return it.label; });
+  if(labeled.length){
+    var score = labeled.reduce(function(a,it){
+      return a + (it.label === "relevant" ? 1 : it.label === "borderline" ? 0.5 : 0);
+    }, 0);
+    push("item_precision", "important", score / labeled.length);
+  }
+  // Only count link precision when the rater actually engaged with links —
+  // otherwise the default-true checkboxes would inflate every record to 1.0.
+  if(state.checks.links_resolve !== null && state.items.length){
+    var ok = state.items.filter(function(it){ return it.link_ok; }).length;
+    push("link_precision", "pitfall", ok / state.items.length);
+  }
+
+  push("time_cost",  "optional", state.scales.time_cost  === null ? null : bipolar(state.scales.time_cost));
+  push("token_cost", "optional", state.scales.token_cost === null ? null : lin(state.scales.token_cost));
+
+  var wsum = comps.reduce(function(a,c){ return a + c.weight; }, 0);
+  var num  = comps.reduce(function(a,c){ return a + c.weight * c.normalized; }, 0);
+  return {
+    scalar: wsum ? +(num / wsum).toFixed(3) : null,
+    veto: state.checks.no_fabricated_citation === false,
+    components: comps
+  };
+}
+
+/* ---------------------------------------------------------------------------
+ * Rendering
+ * ------------------------------------------------------------------------ */
+
+function el(tag, cls, text){
+  var n = document.createElement(tag);
+  if(cls) n.className = cls;
+  if(text != null) n.textContent = text;
+  return n;
+}
+
+function scaleSeg(container, name, current, onPick){
+  container.innerHTML = "";
+  for(var v=1; v<=5; v++){
+    (function(v){
+      var lab = el("label");
+      var inp = document.createElement("input");
+      inp.type = "radio"; inp.name = name; inp.value = String(v);
+      inp.checked = current === v;
+      inp.addEventListener("change", function(){ onPick(v); });
+      var sp = el("span", null, String(v));
+      lab.appendChild(inp); lab.appendChild(sp);
+      container.appendChild(lab);
+    })(v);
+  }
+}
+
+function renderScales(){
+  document.querySelectorAll("[data-scale]").forEach(function(box){
+    var key = box.getAttribute("data-scale");
+    scaleSeg(box, "scale-" + key, state.scales[key], function(v){
+      state.scales[key] = v; recompute();
+    });
+  });
+}
+
+function renderRubric(){
+  var host = document.getElementById("rubric");
+  host.innerHTML = "";
+  RUBRIC_DIMS.forEach(function(d){
+    var fs = el("fieldset");
+    var lg = el("legend", null, d.label + " ");
+    lg.appendChild(el("span", "legend-note", "— " + d.tier));
+    fs.appendChild(lg);
+    var row = el("div", "scale");
+    row.appendChild(el("span", "end", d.ends[0]));
+    var seg = el("div", "seg tiny");
+    scaleSeg(seg, "rub-" + d.key, state.rubric[d.key], function(v){ state.rubric[d.key] = v; recompute(); });
+    row.appendChild(seg);
+    row.appendChild(el("span", "end", d.ends[1]));
+    fs.appendChild(row);
+    host.appendChild(fs);
+  });
+}
+
+function renderChecks(){
+  var host = document.getElementById("checks");
+  host.innerHTML = "";
+  CHECKS.forEach(function(c){
+    var fs = el("fieldset");
+    fs.style.marginBottom = "10px";
+    var lg = el("legend", null, c.label + " ");
+    if(c.note) lg.appendChild(el("span", "legend-note", "— " + c.note));
+    fs.appendChild(lg);
+    var seg = el("div", "seg tiny");
+    [["yes",true],["no",false],["skip",null]].forEach(function(pair){
+      var lab = el("label");
+      var inp = document.createElement("input");
+      inp.type = "radio"; inp.name = "chk-" + c.key;
+      inp.checked = state.checks[c.key] === pair[1];
+      inp.addEventListener("change", function(){ state.checks[c.key] = pair[1]; recompute(); });
+      lab.appendChild(inp); lab.appendChild(el("span", null, pair[0]));
+      seg.appendChild(lab);
+    });
+    fs.appendChild(seg);
+    host.appendChild(fs);
+  });
+}
+
+function renderItems(){
+  var t = document.getElementById("items");
+  t.innerHTML = "";
+  if(!state.items.length){
+    t.appendChild(el("caption", "hint", "No per-paper rows available for this run."));
+    return;
+  }
+  var thead = el("thead"), hr = el("tr");
+  ["","Paper","Label","Link","Flags","Best/worst"].forEach(function(h){ hr.appendChild(el("th", null, h)); });
+  thead.appendChild(hr); t.appendChild(thead);
+
+  var tb = el("tbody");
+  state.items.forEach(function(it, i){
+    var tr = el("tr");
+    tr.appendChild(el("td", "idx", String(i+1)));
+
+    var td = el("td", "ttl");
+    if(it.url){
+      var a = document.createElement("a");
+      a.href = it.url; a.target = "_blank"; a.rel = "noreferrer noopener";
+      a.textContent = it.title || it.url;
+      td.appendChild(a);
+    } else {
+      td.appendChild(document.createTextNode(it.title || "(untitled)"));
+    }
+    td.appendChild(el("span", "cid", it.candidate_id));
+    tr.appendChild(td);
+
+    var tdl = el("td");
+    var seg = el("div", "seg tiny");
+    [["✓","relevant"],["~","borderline"],["✗","irrelevant"]].forEach(function(p){
+      var lab = el("label");
+      var inp = document.createElement("input");
+      inp.type = "radio"; inp.name = "lab-" + i;
+      inp.checked = it.label === p[1];
+      inp.title = p[1];
+      inp.addEventListener("change", function(){ it.label = p[1]; recompute(); });
+      lab.appendChild(inp); lab.appendChild(el("span", null, p[0]));
+      seg.appendChild(lab);
+    });
+    tdl.appendChild(seg);
+    tr.appendChild(tdl);
+
+    var tdk = el("td");
+    var cb = document.createElement("input");
+    cb.type = "checkbox"; cb.checked = it.link_ok; cb.title = "link resolves";
+    cb.addEventListener("change", function(){ it.link_ok = cb.checked; recompute(); });
+    tdk.appendChild(cb);
+    tr.appendChild(tdk);
+
+    var tdf = el("td");
+    var fseg = el("div", "seg tiny");
+    ITEM_FLAGS.forEach(function(f){
+      var lab = el("label");
+      var inp = document.createElement("input");
+      inp.type = "checkbox";
+      inp.checked = it.flags.indexOf(f) >= 0;
+      inp.addEventListener("change", function(){
+        var at = it.flags.indexOf(f);
+        if(inp.checked && at < 0) it.flags.push(f);
+        if(!inp.checked && at >= 0) it.flags.splice(at,1);
+      });
+      lab.appendChild(inp); lab.appendChild(el("span", null, f));
+      fseg.appendChild(lab);
+    });
+    tdf.appendChild(fseg);
+    tr.appendChild(tdf);
+
+    var tdp = el("td");
+    var pseg = el("div", "seg tiny");
+    [["B","best"],["W","worst"]].forEach(function(p){
+      var lab = el("label");
+      var inp = document.createElement("input");
+      inp.type = "radio"; inp.name = "pref-" + p[1]; inp.title = p[1];
+      inp.checked = state[p[1]] === it.candidate_id;
+      inp.addEventListener("change", function(){ state[p[1]] = it.candidate_id; });
+      lab.appendChild(inp); lab.appendChild(el("span", null, p[0]));
+      pseg.appendChild(lab);
+    });
+    tdp.appendChild(pseg);
+    tr.appendChild(tdp);
+
+    tb.appendChild(tr);
+  });
+  t.appendChild(tb);
+}
+
+function renderRunMeta(){
+  var host = document.getElementById("runmeta");
+  host.innerHTML = "";
+  var r = state.run;
+  if(!r){ host.textContent = "No run loaded."; return; }
+  var c = r.constraints || {}, f = r.funnel || {}, g = r.grounding || {}, k = r.cost || {};
+  function row(k2, v){
+    if(v === undefined || v === null || v === "") return;
+    var d = el("div");
+    d.appendChild(el("b", null, k2 + ": "));
+    d.appendChild(document.createTextNode(String(v)));
+    host.appendChild(d);
+  }
+  row("run_id", r.run_id);
+  row("created", r.created);
+  row("topic", [c.field, c.topics].filter(Boolean).join(" · "));
+  row("sota", c.sota_requirements);
+  row("asked for", c.num_papers != null ? (c.num_papers + " papers, " + c.listing + " / " + c.presentation) : null);
+  // Only surfaced when the filter was actually on: an `any` run has nothing to say here,
+  // and row() already skips null, so older result files render exactly as before.
+  row("institutions", (c.institutions && c.institutions !== "any")
+      ? (c.institutions + (c.institutions_accept_list ? " (" + c.institutions_accept_list + ")" : ""))
+      : null);
+  row("funnel", [f.found,f.merged,f.filtered,f.verified,f.selected].filter(function(x){return x!=null;}).join(" → "));
+  row("grounding", g.links_checked != null
+      ? (g.links_checked + " links checked, " + g.non_resolving + " non-resolving, " + g.unknown_fields + " unknown fields")
+      : null);
+  row("cost", [
+      k.wall_clock_s != null ? k.wall_clock_s + "s" : null,
+      k.tokens_total != null ? k.tokens_total + " tokens" : null,
+      k.subagents  != null ? k.subagents + " subagents" : null
+    ].filter(Boolean).join(" · "));
+  if(r.shortfall) row("shortfall", r.shortfall);
+}
+
+function renderReward(rw){
+  document.getElementById("rnum").textContent = rw.scalar === null ? "—" : rw.scalar.toFixed(3);
+  var answered = rw.components.length;
+  var total = 2 + RUBRIC_DIMS.length + CHECKS.length + 2 + 2;
+  document.getElementById("rcover").textContent =
+    state.run ? (answered + " of ~" + total + " criteria answered") : "load a run to begin";
+
+  document.getElementById("vetobox").innerHTML = "";
+  if(rw.veto){
+    document.getElementById("vetobox").appendChild(
+      el("div","veto","VETO — fabricated citation. Never use this run as a positive training example."));
+  }
+
+  var host = document.getElementById("comps");
+  host.innerHTML = "";
+  rw.components.forEach(function(c){
+    var d = el("div", "comp tier-" + c.tier);
+    var top = el("div", "top");
+    top.appendChild(el("b", null, c.key));
+    top.appendChild(el("span", null, "w " + c.weight.toFixed(1) + " · " + c.normalized.toFixed(2)));
+    d.appendChild(top);
+    var bar = el("div", "bar");
+    var fill = el("i");
+    fill.style.width = (c.normalized * 100).toFixed(1) + "%";
+    bar.appendChild(fill);
+    d.appendChild(bar);
+    host.appendChild(d);
+  });
+}
+
+function recompute(){ renderReward(computeReward()); }
+
+/* ---------------------------------------------------------------------------
+ * Record + saving
+ * ------------------------------------------------------------------------ */
+
+function raterSlug(){
+  var v = (document.getElementById("rater").value || "anon").trim().toLowerCase();
+  return v.replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"") || "anon";
+}
+
+function buildRecord(){
+  var r = state.run, rw = computeReward();
+  var reason = document.getElementById("reason").value.trim();
+  var verdictEl = document.querySelector('input[name="verdict"]:checked');
+  var reuseEl = document.querySelector('input[name="reuse"]:checked');
+  var cite = document.getElementById("citecount").value.trim();
+  var vs = document.getElementById("vsrun").value.trim();
+  var now = new Date();
+
+  return {
+    schema: "find-sota-papers/eval@1",
+    eval_id: r.run_id + "__" + raterSlug(),
+    run_id: r.run_id,
+    result_file: state.file ? ("results/" + state.file) : null,
+    rated_at: now.toISOString(),
+    rater: raterSlug(),
+    lead_time_s: state.loadedAt ? Math.round((now - state.loadedAt) / 1000) : null,
+    run: {
+      prompt: r.prompt || null,
+      constraints: r.constraints || null,
+      funnel: r.funnel || null,
+      grounding: r.grounding || null,
+      cost: r.cost || null
+    },
+    scales: {
+      satisfaction:   { value: state.scales.satisfaction,   polarity: "unipolar", reason: reason || null },
+      time_cost:      { value: state.scales.time_cost,      polarity: "bipolar",
+                        direction: state.scales.time_cost === null ? null
+                                 : state.scales.time_cost < 3 ? "too_long"
+                                 : state.scales.time_cost > 3 ? "too_short" : "just_right" },
+      sota_freshness: { value: state.scales.sota_freshness, polarity: "unipolar" },
+      token_cost:     { value: state.scales.token_cost,     polarity: "unipolar" }
+    },
+    rubric: state.rubric,
+    checks: state.checks,
+    items: state.items.map(function(it){
+      return { candidate_id: it.candidate_id, title: it.title, url: it.url,
+               label: it.label, link_ok: it.link_ok, flags: it.flags };
+    }),
+    preference: {
+      best_item: state.best,
+      worst_item: state.worst,
+      vs_run: vs || null,
+      verdict: verdictEl && verdictEl.value ? verdictEl.value : null
+    },
+    freeform: {
+      reason: reason || null,
+      missing: document.getElementById("missing").value.trim() || null,
+      improvement: document.getElementById("improve").value.trim() || null
+    },
+    outcome: {
+      would_reuse: reuseEl && reuseEl.value ? reuseEl.value === "yes" : null,
+      would_cite_count: cite === "" ? null : parseInt(cite, 10)
+    },
+    reward: rw
+  };
+}
+
+function validate(){
+  if(!state.run){ toast("Load a result file first."); return false; }
+  var reason = document.getElementById("reason");
+  if(!reason.value.trim()){
+    reason.classList.add("missing");
+    reason.focus();
+    toast("The reason for the satisfaction rating is required.");
+    return false;
+  }
+  reason.classList.remove("missing");
+  if(state.scales.satisfaction === null){
+    toast("Rate search result satisfaction first.");
+    return false;
+  }
+  return true;
+}
+
+function filenameFor(rec){
+  var base = rec.eval_id + ".json";
+  return base;
+}
+
+async function detectHelper(){
+  if(location.protocol === "file:") return null;
+  try{
+    var res = await fetch("api/ping", { method:"GET" });
+    if(res.ok){
+      var j = await res.json();
+      if(j && j.service === "find-sota-papers-eval") return "api/save";
+    }
+  }catch(e){ /* no helper — fine */ }
+  return null;
+}
+
+async function saveViaHelper(rec){
+  var res = await fetch(helperUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ filename: filenameFor(rec), record: rec })
+  });
+  if(!res.ok) throw new Error("helper returned " + res.status);
+  return (await res.json()).path;
+}
+
+async function saveViaFilesystem(rec){
+  if(!window.showDirectoryPicker) throw new Error("unsupported");
+  if(!dirHandle){
+    dirHandle = await window.showDirectoryPicker({ id:"fsp-evaluations", mode:"readwrite" });
+  }
+  var fh = await dirHandle.getFileHandle(filenameFor(rec), { create:true });
+  var w = await fh.createWritable();
+  await w.write(JSON.stringify(rec, null, 2) + "\n");
+  await w.close();
+  return dirHandle.name + "/" + filenameFor(rec);
+}
+
+function saveViaDownload(rec){
+  var blob = new Blob([JSON.stringify(rec, null, 2) + "\n"], { type:"application/json" });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement("a");
+  a.href = url; a.download = filenameFor(rec);
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 0);
+  return filenameFor(rec);
+}
+
+async function save(){
+  if(!validate()) return;
+  var rec = buildRecord();
+  if(helperUrl){
+    try { toast("Saved → " + await saveViaHelper(rec)); return; }
+    catch(e){ toast("Helper failed (" + e.message + ") — falling back."); }
+  }
+  if(window.showDirectoryPicker){
+    try { toast("Saved → " + await saveViaFilesystem(rec)); return; }
+    catch(e){
+      if(e && e.name === "AbortError") return;   // user cancelled the picker
+    }
+  }
+  toast("Downloaded " + saveViaDownload(rec) + " — move it into evaluations/");
+}
+
+/* ---------------------------------------------------------------------------
+ * Wiring
+ * ------------------------------------------------------------------------ */
+
+function toast(msg){
+  var t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toast._t);
+  toast._t = setTimeout(function(){ t.classList.remove("show"); }, 2600);
+}
+
+function readFile(f){
+  if(!f) return;
+  var fr = new FileReader();
+  fr.onload = function(){ loadResult(String(fr.result), f.name); };
+  fr.readAsText(f);
+}
+
+function wire(){
+  var drop = document.getElementById("drop");
+  var file = document.getElementById("file");
+  drop.addEventListener("click", function(){ file.click(); });
+  drop.addEventListener("keydown", function(e){
+    if(e.key === "Enter" || e.key === " "){ e.preventDefault(); file.click(); }
+  });
+  file.addEventListener("change", function(){ readFile(file.files[0]); });
+  ["dragenter","dragover"].forEach(function(ev){
+    drop.addEventListener(ev, function(e){ e.preventDefault(); drop.classList.add("over"); });
+  });
+  ["dragleave","drop"].forEach(function(ev){
+    drop.addEventListener(ev, function(e){ e.preventDefault(); drop.classList.remove("over"); });
+  });
+  drop.addEventListener("drop", function(e){
+    if(e.dataTransfer && e.dataTransfer.files.length) readFile(e.dataTransfer.files[0]);
+  });
+
+  document.querySelectorAll("[data-bulk]").forEach(function(b){
+    b.addEventListener("click", function(){
+      var mode = b.getAttribute("data-bulk");
+      state.items.forEach(function(it){ it.label = mode === "clear" ? null : mode; });
+      renderItems(); recompute();
+    });
+  });
+
+  document.getElementById("reason").addEventListener("input", function(){
+    this.classList.remove("missing");
+  });
+  document.getElementById("btnSave").addEventListener("click", save);
+  document.getElementById("btnDownload").addEventListener("click", function(){
+    if(validate()) toast("Downloaded " + saveViaDownload(buildRecord()));
+  });
+}
+
+renderScales();
+renderRubric();
+renderChecks();
+renderItems();
+renderRunMeta();
+recompute();
+wire();
+
+detectHelper().then(function(url){
+  helperUrl = url;
+  document.getElementById("savehint").textContent = url
+    ? "Local helper detected — Save writes straight into evaluations/."
+    : (window.showDirectoryPicker
+        ? "Save will ask once for the evaluations/ folder, then write there directly. Run python serve_evaluations.py to skip the prompt."
+        : "This browser cannot write files directly — Save downloads the record instead. Run python serve_evaluations.py for direct saves.");
+});
+</script>
+</body>
+</html>
