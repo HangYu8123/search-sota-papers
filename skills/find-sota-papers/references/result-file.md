@@ -1,7 +1,7 @@
 # Result File Format (`find-sota-papers/result@1`)
 
 The standardized on-disk form of a search run. Read this when the skill is
-invoked in a harness that can write files (Step 12 of `SKILL.md`).
+invoked in a harness that can write files (Step 13 of `SKILL.md`).
 
 A result file is **the same report the user sees in chat**, plus machine-readable
 run metadata and an audit ledger. It is the unit that the evaluation GUI
@@ -67,9 +67,10 @@ constraints:
   include_classic: true
   multi_agent: auto                               # auto | yes | no
   num_papers: 30
+  relationship_graph: true                        # true | false
 funnel:                 # the Step-9 honesty trail; each number must be real
-  found: 96             # raw candidates across all discovery lanes
-  merged: 71            # after dedup by candidate_id
+  found: 138            # raw candidates across all discovery lanes
+  merged: 97            # after dedup by candidate_id — must clear the discovery floor
   filtered: 44          # after date floor + relevance
   verified: 31          # LIVE after validation
   selected: 28          # actually listed below
@@ -105,7 +106,7 @@ Headings must match exactly. The evaluation GUI locates content by heading.
 <one line restating resolved constraints: since <date> · SOTA = <criterion>
 · cites total≥<X>/month≥<Y> · <N> papers · list by <mode> · <presentation>>
 
-Found 96 → merged 71 → filtered 44 → verified 31 → selected 28.
+Found 138 → merged 97 → filtered 44 → verified 31 → selected 28.
 Citation counts via Semantic Scholar (2026-07-19).
 28 of 30 — 3 below the citation floor, 1 unresolved link.
 
@@ -121,19 +122,31 @@ No single common ancestor emerged across the selected papers — skipped.
 ### <Category A | 2026>
 
 **[Title](https://…)** — authors, venue, date
-- *Intuition:* …
-- *Contribution:* …
-- *Setup:* …
-- *Results:* … vs <named baselines>.
+- *Intuition:* … ([paper evidence](https://…))
+- *Contribution:* … ([paper evidence](https://…))
+- *Setup:* … ([setup evidence](https://…))
+- *Results:* … vs <named baselines>. ([result/benchmark evidence](https://…))
 
 ### <Category B | 2025>
 …
 
+## Relationship graph
+
+<!-- only when relationship_graph was on; omit the whole section otherwise -->
+
+2 tracks: diffusion policies (P1–P8) · autoregressive VLAs (P9–P14).
+P1 <Title>, P2 <Title>, … C1 <Classic work title>
+
+P3 --cites--> P1
+P1 --cites--> C1
+P7 --builds-on--> P2  ("we build directly on …")
+P14 — disconnected: no citation link to any other selected paper.
+
 ## Verification ledger
 
-| # | candidate_id | title | link | date | citations | source | affiliation | checks | verdict |
-|---|---|---|---|---|---|---|---|---|---|
-| 1 | arXiv:2503.01234 | … | https://arxiv.org/abs/2503.01234 | 2025-03 | 142 | S2 | Stanford University | canonical+meta+citation+sota+affiliation | LIVE |
+| # | candidate_id | title | link | date | citations | source | citation_evidence | sota_evidence | content_evidence | affiliation | affiliation_evidence | checks | verdict |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | arXiv:2503.01234 | … | https://arxiv.org/abs/2503.01234 | 2025-03 | 142 | S2 | https://api.semanticscholar.org/… | https://benchmark.example/… | https://arxiv.org/html/2503.01234 | Stanford University | https://arxiv.org/html/2503.01234 | canonical+meta+citation+sota+affiliation | LIVE |
 
 ## Dropped candidates
 
@@ -165,6 +178,13 @@ Open `evaluate_results_gui.html`, load this file, and save the result to
 - **`affiliation`** names the accept-list institution that qualified the paper,
   or `—` when `institutions` was `any`. One institution is enough; listing every
   affiliation of every author is noise.
+- **Evidence columns preserve provenance.** `citation_evidence` is the exact
+  fetched URL that supplied the count; `sota_evidence` supports benchmark/SOTA
+  status; `content_evidence` supports intuition, contribution, setup, and result
+  claims; `affiliation_evidence` supports the qualifying institution and is `—`
+  when the institution filter is off. Put multiple URLs in one cell with `<br>`.
+  Encode a literal pipe in any table value as `&#124;` so the evaluation parser
+  does not split one field into multiple columns.
 - **Institution drops carry which kind they were.** Use
   `institution: not on accept-list (<resolved institutions>)` when affiliations
   were established and none matched, and `institution: affiliation unresolved`
@@ -175,6 +195,11 @@ Open `evaluate_results_gui.html`, load this file, and save the result to
 - **Every dropped candidate gets a row and a concrete reason.** "Dropped" with no
   reason is indistinguishable from a candidate silently lost, and the shortfall
   gate depends on the difference.
+- **The relationship graph never adds a paper.** Its `P1…Pn` ids follow the order
+  papers appear under `## Papers`, and no edge line may use the
+  `**[Title](url)**` shape — the evaluation GUI falls back to counting linked
+  bold titles when a ledger is missing, so an edge written that way is read as an
+  extra paper that has no ledger row.
 - **`selected` must equal the number of papers under `## Papers`** (excluding the
   classic work) **and** the number of ledger rows. If the three disagree, the run
   is wrong, not the file.

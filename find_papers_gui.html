@@ -6,7 +6,7 @@
 <title>Find SOTA Papers — Prompt Builder</title>
 <!--
   "Find SOTA Papers" prompt builder — a single self-contained static page.
-  WHY: the find-sota-papers skill takes 13 constraints; typing them out by hand every
+  WHY: the find-sota-papers skill takes 14 constraints; typing them out by hand every
   time is fiddly. Set them with fields and buttons here, copy the finished prompt.
 
   - No build, no dependencies, no network, no server required. Double-click to open.
@@ -55,6 +55,7 @@
   .field label{display:block;font-size:13px;font-weight:600;margin-bottom:4px}
   .field .req{color:var(--accent);font-weight:400}
   .field .opt{color:var(--muted);font-weight:400}
+  .field .hint{display:block;font-size:12px;font-weight:400;color:var(--muted);margin:-2px 0 5px}
   .field textarea,.field input{width:100%;font-family:var(--mono);font-size:13px;
         padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
   .field textarea{min-height:42px;resize:vertical}
@@ -106,6 +107,7 @@
 
       <div class="field">
         <label for="in-sota">SOTA requirements <span class="req">· required</span></label>
+        <span class="hint">The bar a paper must clear to count as state of the art.</span>
         <textarea id="in-sota" rows="2" placeholder="e.g. top success rate on RLBench / CALVIN, or 'current best-performing approaches'"></textarea>
       </div>
 
@@ -174,6 +176,14 @@
       </fieldset>
 
       <fieldset>
+        <legend>relationship graph</legend>
+        <div class="seg" id="seg-relgraph" role="radiogroup" aria-label="relationship graph">
+          <label><input type="radio" name="relgraph" value="yes" checked><span>yes</span></label>
+          <label><input type="radio" name="relgraph" value="no"><span>no</span></label>
+        </div>
+      </fieldset>
+
+      <fieldset>
         <legend>multi-agent search</legend>
         <div class="seg" id="seg-multi-agent" role="radiogroup" aria-label="multi-agent search">
           <label><input type="radio" name="multiagent" value="auto" checked><span>auto</span></label>
@@ -226,6 +236,10 @@ var INSTITUTIONS_GLOSS = {
   any: "no affiliation filter",
   reputable: "keep only papers with at least one author affiliated with an institution on the skill's curated reputable-institutions accept-list, indexed by topic in references/topics/institutions.md; apply the general list, plus the matched topic's list file when the topic has one, and report institution drops separately from papers whose affiliation could not be established"
 };
+var RELGRAPH_GLOSS = {
+  yes: "after selecting the final papers, map how they relate to each other — citation edges taken from fetched reference data, build-on edges only where a paper says in its own words that it builds on another, and separate research tracks reported as disconnected clusters; emit it as a plain edge list under a \"Relationship graph\" heading, and never invent an edge you could not evidence",
+  no: "no relationship graph"
+};
 var MULTI_AGENT_GLOSS = {
   auto: "use real subagents for parallel discovery and validation when available and useful; otherwise run sequentially",
   yes: "request bounded parallel discovery and validation with real subagents; fall back sequentially if unavailable",
@@ -273,6 +287,9 @@ function buildPrompt(){
 
   var classic = radio("classic");
   lines.push("Include classic work: " + classic + " — " + CLASSIC_GLOSS[classic]);
+
+  var relGraph = radio("relgraph");
+  lines.push("Relationship graph: " + relGraph + " — " + RELGRAPH_GLOSS[relGraph]);
 
   var multiAgent = radio("multiagent");
   lines.push("Multi-agent: " + multiAgent + " — " + MULTI_AGENT_GLOSS[multiAgent]);
@@ -346,6 +363,7 @@ function wire(){
     document.querySelector('input[name="present"][value="minimalism"]').checked = true;
     document.querySelector('input[name="institutions"][value="any"]').checked = true;
     document.querySelector('input[name="classic"][value="yes"]').checked = true;
+    document.querySelector('input[name="relgraph"][value="yes"]').checked = true;
     document.querySelector('input[name="multiagent"][value="auto"]').checked = true;
     renderPreview();
     toast("Fields cleared");
