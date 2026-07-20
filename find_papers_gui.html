@@ -191,6 +191,14 @@
           <label><input type="radio" name="multiagent" value="no"><span>no</span></label>
         </div>
       </fieldset>
+
+      <fieldset>
+        <legend>visualization <span style="font-weight:400">(HTML page after the result file)</span></legend>
+        <div class="seg" id="seg-visualize" role="radiogroup" aria-label="visualization">
+          <label><input type="radio" name="visualize" value="no" checked><span>no</span></label>
+          <label><input type="radio" name="visualize" value="yes"><span>yes</span></label>
+        </div>
+      </fieldset>
     </section>
 
     <!-- RIGHT: prompt -->
@@ -245,6 +253,10 @@ var MULTI_AGENT_GLOSS = {
   yes: "request bounded parallel discovery and validation with real subagents; fall back sequentially if unavailable",
   no: "do not create subagents; run the same discovery and validation workflow sequentially"
 };
+var VISUALIZE_GLOSS = {
+  yes: "after the result Markdown file is written, also generate a self-contained interactive HTML visualization of the selected papers next to it (results/<slug>_<date>.html) — summary tiles, a papers-over-time chart, category and institution breakdowns, and a searchable/filterable grid of paper cards each with its working link; design it with the dataviz skill's palette and conventions (theme-aware, no external requests), render only already-verified papers and counts, and when several result files are combined, dedupe by id and add an overlap view. Optionally publish it with the Artifact tool for a shareable preview",
+  no: "no visualization — result Markdown file only"
+};
 
 function val(id){ return (document.getElementById(id).value || "").trim(); }
 function radio(name){ return document.querySelector('input[name="' + name + '"]:checked').value; }
@@ -293,6 +305,9 @@ function buildPrompt(){
 
   var multiAgent = radio("multiagent");
   lines.push("Multi-agent: " + multiAgent + " — " + MULTI_AGENT_GLOSS[multiAgent]);
+
+  var visualize = radio("visualize");
+  lines.push("Visualization: " + visualize + " — " + VISUALIZE_GLOSS[visualize]);
 
   lines.push("");
   lines.push("Every paper must include a working link. Verify each paper resolves to a real arXiv / DOI / Semantic Scholar entry before listing it — do not list papers from memory and do not fabricate any title, author, link, or citation count. Do not pad the list to reach the requested count: if fewer papers survive verification, return those and state the shortfall and why.");
@@ -365,6 +380,7 @@ function wire(){
     document.querySelector('input[name="classic"][value="yes"]').checked = true;
     document.querySelector('input[name="relgraph"][value="yes"]').checked = true;
     document.querySelector('input[name="multiagent"][value="auto"]').checked = true;
+    document.querySelector('input[name="visualize"][value="no"]').checked = true;
     renderPreview();
     toast("Fields cleared");
   });

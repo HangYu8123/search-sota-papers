@@ -67,6 +67,7 @@ proceed (autonomous mode — do not stop to ask).
 | `num_papers` | No | `30` | Target number of papers to return. |
 | `relationship_graph` | No | `true` | Build a grounded relationship graph over the **selected** papers — citation edges, self-reported build-on edges, and disconnected components (separate research tracks). See Step 11. |
 | `result_file` | No | `auto` | `auto` writes `results/<slug>_<date>.md` whenever a file-write tool exists; an explicit path overrides the location; `no` suppresses the file. See Step 13. |
+| `visualize` | No | `false` | After the result file is written, also generate a self-contained interactive HTML visualization of the selected papers — and, when several result files are combined, their overlap. Off by default. See Step 14. |
 | links | Yes (invariant) | — | Every paper **must** carry a working link. Not a toggle. |
 
 ## Sources
@@ -309,7 +310,31 @@ does not degrade gracefully, it silently drops a feedback signal.
 Say in one line where you wrote it. If you have no file-write tool, emit to chat
 and say the result file was skipped for that reason.
 
-### 14. Invite evaluation
+### 14. Visualize (optional — only if `visualize`)
+Off by default. When on, and only after the result file exists, generate a
+**self-contained, interactive HTML visualization** of the selected papers as a
+companion to the Markdown — the same verified set, rendered rather than read.
+
+- **Design with the `dataviz` skill.** Invoke it (via the Skill tool) first and
+  take its palette, categorical-color rules, and chart/mark conventions — do not
+  hand-pick colors. The page must be theme-aware (light and dark) and clear the
+  skill's usual checks.
+- **Build it self-contained.** Inline all CSS and JS, embed the paper data as a
+  JSON array in the page, and make **no external requests** (no CDN, fonts, or
+  remote calls) so it opens by double-click from `file://`.
+- **What to show**, all driven from the embedded data: summary stat tiles (funnel
+  and counts); a papers-over-time chart; a by-category breakdown and a
+  top-institution breakdown; and a searchable, filterable grid of paper cards —
+  each with its **working link**, date, citation count, institution, and the
+  minimalism one-liners. Filters mirror the run's `listing` (group by category or
+  timeline).
+- **Never fabricate for the picture.** The visualization renders only papers,
+  links, and counts already verified for the result file; it adds no new claim,
+  and an `unknown` field stays `unknown`.
+- **Where:** write it next to the result file as `results/<slug>_<date>.html`
+  (or a combined name when merging runs), and say in one line where you wrote it.
+
+### 15. Invite evaluation
 Close with a one-line pointer: the run id, and that opening
 `evaluate_results_gui.html` and loading this file records feedback into
 `evaluations/`. Do not fill in any evaluation yourself — self-scoring a run you
@@ -410,6 +435,11 @@ P15 — disconnected: no citation link to any other selected paper.
   the number of verification-ledger rows all agree; every dropped candidate has a
   concrete reason, and each LIVE row preserves canonical, citation, SOTA/content,
   and applicable affiliation evidence URLs.
+- When `visualize` was on: a self-contained HTML visualization was written next to
+  the result file, built with the `dataviz` skill's palette, making no external
+  request, and rendering only already-verified papers, links, and counts — adding
+  no new claim; when multiple runs were combined it deduped by id and showed their
+  overlap. When off, no visualization was produced.
 - Run metadata is measured, not reconstructed: funnel counts were tallied during
   the run, and `tokens_total` is `unknown` unless the harness actually reported a
   number.
