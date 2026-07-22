@@ -20,8 +20,13 @@ sequentially. Inline roleplay is not parallel work.
 
 Give every worker normalized constraints, one distinct objective, source
 priorities, target count, explicit query/fetch/time budget, saturation rule, and
-the search requirements from `references/search-depth.md`. Require live search
-and fetch; a worker without them returns an empty ledger and the reason.
+the search requirements from `references/search-depth.md` — including the
+**mandatory snowball floor**: expand the lane's strongest candidates through
+backward references and forward citations, not keyword queries alone.
+
+One lane is one row of the discovery manifest, so each worker owns exactly one
+lane and reports the numbers that fill that row. Require live search and fetch; a
+worker without them returns an empty ledger and the reason.
 
 Workers return compact rows, not prose:
 
@@ -29,13 +34,22 @@ Workers return compact rows, not prose:
 lane_id | queries_and_sources_checked | candidate_id | title | authors | venue |
 date | canonical_url | citation_count | citation_source |
 citation_evidence_url | sota_evidence_urls | content_evidence_urls | intuition |
-contribution | setup | results_vs_baselines | relevance_note |
-unresolved_conflicts
+contribution | setup | results_vs_baselines | from_snowball(yes|no) |
+relevance_note | unresolved_conflicts
 ```
 
-Use a versionless arXiv ID, lowercase DOI, or normalized-title fallback as
-`candidate_id`. A factual field without a fetched evidence URL is `unknown`.
-Workers do not rank globally or write user-facing lists.
+plus **one lane-summary line** the main agent copies into the discovery manifest:
+
+```text
+lane_id | seed_queries | raw_hits | curated_candidates | snowball_added
+```
+
+`raw_hits` is the pre-dedup count the lane's queries returned; `curated_candidates`
+is the rows it kept; `snowball_added` is how many of those arrived via citation/
+reference expansion (`from_snowball = yes`). Use a versionless arXiv ID, lowercase
+DOI, or normalized-title fallback as `candidate_id`. A factual field without a
+fetched evidence URL is `unknown`. Workers do not rank globally or write
+user-facing lists.
 
 ## Validation worker contract
 

@@ -1,33 +1,38 @@
-# Popular Research Topics — snapshot 2026-07-19
+# Popular Research Fields — snapshot 2026-07-20
 
-A dated seed list of research directions that were demonstrably active when it
-was written, each with a one-sentence **intuition** and a live URL that
-evidenced it. Its jobs are to give you a starting vocabulary for the `topics`
-field, and to carry the **topic keys** that select institution list files.
+A dated seed list of the research **fields** that were demonstrably active when it
+was written, each with a one-sentence **intuition**, a column of **hot sub-areas**
+that doubles as query vocabulary, and a live URL that evidenced it. Its jobs are
+to give you a starting vocabulary for the `topics` field, and to carry the
+**topic keys** that select institution list files.
 
 > **This is a snapshot, not a live signal — and it will go stale.** The skill it
 > belongs to treats unavailable archival leaderboards as non-current, so it has
-> to say the same about its own snapshot. Every topic below was evidenced by a page fetched on
-> 2026-07-19 and nothing here has been re-checked since. Use it to *phrase* a
+> to say the same about its own snapshot. Every field below was evidenced by a page fetched on
+> 2026-07-20 and nothing here has been re-checked since. Use it to *phrase* a
 > search, never as evidence that something is currently SOTA — that is what a
 > run of the skill is for. When it starts feeling dated, regenerate it rather
 > than trusting it.
 
-Scope: AI/ML, NLP, CV, multimodal, agents, robotics, systems — the areas this
-project is used for. Intuitions are one sentence by design, matching the
+Scope: the major fields of AI/ML research and its scientific applications — the
+areas this project is used for. Rows are deliberately **broad fields** (CV, NLP,
+RL, robotics, bioinformatics, …); the specific movement within each lives in the
+*Hot sub-areas* column. Intuitions are one sentence by design, matching the
 `minimalism` presentation the skill emits.
 
 ## How this connects to the institution filter
 
-A topic key here can carry its own **institution list file** under
+A field key here can carry its own **institution list file** under
 `institutions/`, indexed by `institutions.md` beside this file. When
 `institutions` is `reputable`:
 
 - `institutions/general.md` — the **general list** of 147 institutions — always
   applies;
-- if the topic matches a key that has a file — marked **`robotics`** in the
-  table below — the accept-list is the general list **plus** that file's
-  entries, and that file is the only extra one loaded;
+- if the topic matches a key that has a file — the keyed fields in the table
+  below (`robotics`, `bioinformatics`, `ai4science`, `medical`,
+  `autonomous-driving`, `ai-safety`, `speech`, `recsys`) — the accept-list is the
+  general list **plus** that file's entries; a cross-disciplinary topic can match
+  more than one, and their entries are then unioned;
 - if the topic matches nothing here, the **general list alone** applies. That is
   the ordinary case for any topic outside this snapshot, and it is never a
   reason to skip the filter.
@@ -37,43 +42,41 @@ general-purpose ranking under-serves a specialty — robotics being the case tha
 motivated it. The authoritative statement of what a key matches lives in that
 key's file, not here: this file is topic vocabulary and gets regenerated.
 
-## The topics
+## The fields
 
-| Topic | Field | Topic key | Intuition | Evidenced by |
+| Field | Topic key | Intuition | Hot sub-areas (mid-2026) | Evidenced by |
 |---|---|---|---|---|
-| Agentic AI / LLM agents | Agents | — | Wrap a model in a loop that plans, calls tools, and acts over many steps instead of returning a single answer. | [ICML 2026 workshop analysis](https://blog.icml.cc/2026/04/06/announcing-the-icml-2026-workshops-and-affinity-workshops/) |
-| Agentic RL / RL with verifiable rewards (RLVR) | AI/ML | — | Reward the model only when a program can check the answer was right, removing the human preference labeller from the loop. | [arXiv:2606.28166](https://arxiv.org/abs/2606.28166) |
-| World models / physical AI | AI/ML, Robotics | `robotics` | Learn to predict how the world changes under an action, so an agent can imagine consequences before committing to one. | [arXiv:2606.16533](https://arxiv.org/abs/2606.16533); [CVPR 2026 report](https://hirokatsukataoka.net/temp/presen/260611CVPR2026Report_FinalizedVer.pdf) |
-| Vision-Language-Action (VLA) models | Robotics | `robotics` | Fuse a vision-language model with an action decoder so one network maps pixels plus an instruction straight to motor commands. | [ICLR 2026 VLA submissions analysis](https://mbreuss.github.io/blog_post_iclr_26_vla.html) |
-| Embodied AI / spatial understanding & navigation | Robotics, CV | `robotics` | Teach agents to understand and act inside physical 3D space rather than classify isolated images. | [CVPR 2026 report](https://hirokatsukataoka.net/temp/presen/260611CVPR2026Report_FinalizedVer.pdf) |
-| Video generation | Multimodal, CV | — | Extend diffusion to temporally coherent video, increasingly used as a stand-in for learned physics. | [CVPR 2026 report](https://hirokatsukataoka.net/temp/presen/260611CVPR2026Report_FinalizedVer.pdf) |
-| Vision-language models / multimodal LLMs | Multimodal | — | Give a language model sight, so it reasons over images, video, and text jointly. | [CVPR 2026 report](https://hirokatsukataoka.net/temp/presen/260611CVPR2026Report_FinalizedVer.pdf) |
-| Diffusion language models | NLP | — | Generate a whole sequence by iteratively denoising it in parallel instead of strictly left to right. | [arXiv:2508.10875](https://arxiv.org/abs/2508.10875) |
-| Test-time compute scaling / inference-time reasoning | NLP, AI/ML | — | Let a model think longer at inference — longer chains, more attempts — instead of only scaling training. | [arXiv:2606.08231](https://arxiv.org/abs/2606.08231) |
-| GUI / computer-use agents | Agents, Systems | — | Train agents to drive ordinary software by looking at the screen and clicking, so no custom API is needed. | [arXiv:2602.16855](https://arxiv.org/abs/2602.16855); [arXiv:2601.20650](https://arxiv.org/abs/2601.20650) |
-| Coding agents / agentic software engineering | Agents | — | Hand a model a terminal, a filesystem, and a test suite, and let it iterate on its own code. | [Hugging Face trending papers](https://huggingface.co/papers/trending) |
-| Context engineering / agent memory | Agents, Systems | — | Reliability now turns on curating exactly what enters a limited context window each step, not on prompt wording. | [arXiv:2606.24775](https://arxiv.org/abs/2606.24775) |
-| Mechanistic interpretability | AI safety | — | Reverse-engineer the circuits inside a trained network to explain how it computes, not just what it outputs. | [arXiv:2606.24026](https://arxiv.org/abs/2606.24026); [arXiv:2606.26523](https://arxiv.org/abs/2606.26523) |
-| Synthetic data for pretraining / scaling laws | AI/ML | — | With high-quality web text running out, generate the data instead and test whether the scaling curves still hold. | [arXiv:2606.19781](https://arxiv.org/abs/2606.19781) |
-| Linear attention / state-space models for long context | AI/ML, Systems | — | Replace quadratic attention with recurrent or linear-time alternatives to read far longer sequences affordably. | [arXiv:2510.27258](https://arxiv.org/abs/2510.27258); [arXiv:2605.06946](https://arxiv.org/abs/2605.06946) |
-| Speculative decoding / efficient inference | Systems | — | A small draft model guesses several tokens ahead and the large model verifies them at once, batching what used to be serial. | [arXiv:2607.05147](https://arxiv.org/abs/2607.05147) |
-| Mixture-of-Experts architectures | AI/ML, Systems | — | Route each token to a few specialist sub-networks, so capacity grows without compute growing with it. | [arXiv:2605.17598](https://arxiv.org/abs/2605.17598) |
-| AI4Science / protein and scientific foundation models | AI4Science | — | Apply language-model pretraining recipes to biological and chemical data to predict structure and design molecules. | [arXiv:2605.16331](https://arxiv.org/abs/2605.16331); [arXiv:2604.17406](https://arxiv.org/abs/2604.17406) |
-| Document-parsing / OCR vision-language models | Multimodal | — | Let a VLM read a rendered document end to end — tables, formulas, layout — instead of chaining a classic OCR pipeline. | [Hugging Face trending papers](https://huggingface.co/papers/trending) |
-| Retrieval-augmented / search agents | NLP, Agents | — | Let the model issue its own searches and read what comes back, grounding answers in retrieval rather than memory. | [Hugging Face trending papers](https://huggingface.co/papers/trending) |
-| Small / on-device speech and language models | NLP, Systems | — | Compress capable models until they run on edge hardware instead of requiring a cloud GPU. | [Hugging Face trending papers](https://huggingface.co/papers/trending) |
-| 3D Gaussian splatting / novel-view synthesis ⚠ | CV | — | Represent a scene as a cloud of soft blendable blobs, so it renders in real time yet still trains by gradient descent from photos. | [arXiv:2604.23551](https://arxiv.org/abs/2604.23551); [arXiv:2602.20342](https://arxiv.org/abs/2602.20342) |
+| Natural language processing / LLMs | — | Train a transformer by next-token prediction over massive text, then instruction-tune and RL-align it into a general reasoning and generation engine. | Test-time-compute reasoning, diffusion LMs, long-context & linear attention, RL with verifiable rewards | [LLM research papers 2026](https://magazine.sebastianraschka.com/p/llm-research-papers-2026-part1) |
+| Computer vision | — | Turn raw pixels into semantic, geometric, or generative structure — detection, segmentation, 3D, image and video synthesis — with convolutional or transformer backbones. | 3D Gaussian splatting & novel-view synthesis, video generation, open-vocabulary detection/segmentation | [CVPR 2026 technical program](https://cvpr.thecvf.com/Conferences/2026/News/Technical_Program) |
+| Multimodal / vision-language models | — | Feed visual tokens into a language model — or align both in a shared space — so one network reasons and generates across images, video, and text. | Any-to-any models, document/OCR VLMs, video-language, unified understanding + generation | [VLM survey of 26K papers (arXiv:2510.09586)](https://arxiv.org/abs/2510.09586) |
+| Reinforcement learning | — | Optimize a policy by trial and error against a reward signal — now the core recipe for aligning and "agentifying" LLMs. | RL with verifiable rewards (RLVR), agentic RL, preference optimization, offline RL | [Agentic RL survey (arXiv:2509.02547)](https://arxiv.org/abs/2509.02547) |
+| Generative modeling / diffusion & flow | — | Train a network to reverse a noising process — predicting the score or velocity that transports noise to data — then generate by integrating that transport. | Flow matching, few-step & consistency samplers, autoregressive image models | [ICML 2026 awards](https://blog.icml.cc/2026/07/05/announcing-the-icml-2026-awards/) |
+| LLM agents / agentic AI | — | Wrap a model in a perceive-plan-act loop that emits tool calls, observes each result, and iterates until a multi-step task is done. | Coding agents, GUI / computer-use agents, tool use, agent memory & context engineering | [Agentic programming survey (arXiv:2508.11126)](https://arxiv.org/abs/2508.11126) |
+| Robotics | `robotics` | Fuse a vision-language model with an action decoder so one policy maps camera frames plus an instruction straight to motor commands, trained by imitation over multi-embodiment data. | Vision-language-action (VLA) models, dexterous manipulation, humanoids, robot foundation models | [CoRL 2025 papers](https://github.com/smallfryy/corl-2025-papers) |
+| ML systems / efficient ML ⚠ | — | Cut the compute, memory, and latency of large models through quantization, conditional Mixture-of-Experts routing, and serving tricks like KV-cache management. | Quantization, mixture-of-experts, speculative decoding, long-context KV-cache serving | [arXiv:2603.19172](https://arxiv.org/abs/2603.19172) |
+| AI safety / interpretability | `ai-safety` | Reverse-engineer the circuits and features inside a trained network so alignment rests on verified internal mechanisms, not just input-output behavior. | Mechanistic interpretability, sparse autoencoders, activation steering, scalable oversight | [Mech-interp for alignment survey (arXiv:2602.11180)](https://arxiv.org/abs/2602.11180) |
+| Graph machine learning ⚠ | — | Build node and graph embeddings by passing and aggregating messages along edges, making each representation a permutation-invariant function of its neighborhood. | Graph foundation models, scalable GNNs, geometric / equivariant networks | [arXiv:2603.22984](https://arxiv.org/abs/2603.22984) |
+| Speech & audio | `speech` | Tokenize continuous audio into discrete units and model them autoregressively, unifying recognition, synthesis, and generation as next-token prediction over speech tokens. | Spoken language models, neural TTS / voice cloning, streaming ASR, audio generation | [Spoken language models survey (arXiv:2504.08528)](https://arxiv.org/abs/2504.08528) |
+| Recommender systems & information retrieval | `recsys` | Assign items semantic-ID token sequences and train a sequence model to generate the next item, collapsing retrieval and ranking into one decoder. | Generative retrieval & semantic IDs, LLM-based recommenders, retrieval-augmented generation | [RecSys 2025 accepted contributions](https://recsys.acm.org/recsys25/accepted-contributions/) |
+| Time-series analysis & forecasting ⚠ | — | Pretrain a transformer on heterogeneous temporal data so it forecasts unseen series zero-shot by in-context learning, with no task-specific retraining. | Forecasting foundation models, zero-shot forecasting, anomaly detection | [arXiv:2510.26777](https://arxiv.org/abs/2510.26777) |
+| Autonomous driving | `autonomous-driving` | Replace the hand-built perception-prediction-planning stack with a learned world model that rolls out future sensor states and plans by scoring imagined futures. | Driving world models, end-to-end driving, occupancy prediction, closed-loop simulation | [Driving world-models survey (arXiv:2502.10498)](https://arxiv.org/abs/2502.10498) |
+| Bioinformatics / computational biology | `bioinformatics` | Pretrain transformers on amino-acid and nucleotide sequences so learned evolutionary constraints decode into structure, function, and de-novo designs. | Protein language models, structure prediction, genomics foundation models, de-novo design | [Transformers in Protein survey (arXiv:2505.20098)](https://arxiv.org/abs/2505.20098) |
+| AI for Science | `ai4science` | Train neural surrogates that learn a physical system's dynamics from data, replacing or accelerating expensive numerical solvers for weather, molecules, and materials. | Weather/climate models, ML interatomic potentials, materials discovery, PDE surrogates | [AIMIP Phase 1 AI weather/climate eval (arXiv:2605.06944)](https://arxiv.org/abs/2605.06944) |
+| Medical / healthcare AI | `medical` | Self-supervise foundation models on large clinical image and text corpora, then adapt them with little labeled data to diagnostic tasks. | Medical-imaging foundation models, clinical LLMs, pathology/radiology, EHR modeling | [Medical-imaging FM review (arXiv:2506.09095)](https://arxiv.org/abs/2506.09095) |
+| ML theory & optimization ⚠ | — | Prove how gradient descent drives feature learning — analyzing training-dynamics phases, lazy vs. feature-learning regimes, and loss-landscape geometry. | Feature-learning dynamics, optimizer analysis, generalization, scaling laws | [Alternating gradient flows (arXiv:2506.06489)](https://arxiv.org/abs/2506.06489) |
 
-⚠ **Weaker evidence.** This one rests on individual 2026-dated arXiv papers
-rather than a conference-level trend statistic or a trending listing — active,
-but not demonstrably *rising* the way the others are. Flagged rather than
-dropped, and flagged rather than quietly presented as equal.
+⚠ **Weaker evidence.** These rows rest on an individual arXiv paper rather than a
+conference-level trend statistic or a trending listing — enough to show the field
+is active, but not to show it is *rising* the way a program-wide theme breakdown
+does. Flagged rather than dropped, and flagged rather than quietly presented as
+equal to the conference-evidenced rows.
 
 ## Regenerating this file
 
 Ask the skill's usual sources what is moving — Hugging Face trending papers,
-recent arXiv listings in cs.AI / cs.LG / cs.CV / cs.CL / cs.RO, and accepted-paper
-theme breakdowns from the last NeurIPS / ICML / ICLR / CVPR / CoRL / ICRA — then
-rewrite the table, bump the snapshot date, and keep one live URL per row. Drop a
-topic when you can no longer evidence it; a row you cannot re-evidence is the
-whole failure mode this file warns about at the top.
+recent arXiv listings in cs.AI / cs.LG / cs.CV / cs.CL / cs.RO / q-bio, and
+accepted-paper theme breakdowns from the last NeurIPS / ICML / ICLR / CVPR / ACL /
+CoRL / RecSys — then rewrite the table, bump the snapshot date, and keep one live
+URL per row. Keep rows at the level of a broad field and push the specifics into
+*Hot sub-areas*. Drop a field when you can no longer evidence it; a row you cannot
+re-evidence is the whole failure mode this file warns about at the top.

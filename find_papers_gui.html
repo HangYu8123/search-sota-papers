@@ -149,7 +149,24 @@
         </div>
       </fieldset>
 
-      <h2 style="margin-top:18px">3 · Output shape</h2>
+      <h2 style="margin-top:18px">3 · Search depth</h2>
+
+      <fieldset>
+        <legend>discovery floor <span style="font-weight:400">(min unique candidates surveyed before filtering — applies even to a small final list)</span></legend>
+        <div class="seg" id="seg-floor" role="radiogroup" aria-label="discovery floor">
+          <label><input type="radio" name="floor" value="100" checked><span>standard · ≥100</span></label>
+          <label><input type="radio" name="floor" value="150"><span>thorough · ≥150</span></label>
+          <label><input type="radio" name="floor" value="250"><span>exhaustive · ≥250</span></label>
+        </div>
+      </fieldset>
+
+      <div class="field">
+        <label for="in-subareas">Sub-areas to cover <span class="opt">· optional — one per line</span></label>
+        <span class="hint">Each becomes its own discovery lane; more sub-areas → more lanes (floor: max(6, 2×count)). Blank = the skill decomposes your topics itself.</span>
+        <textarea id="in-subareas" rows="3" placeholder="e.g.&#10;diffusion policies&#10;sim-to-real RL&#10;contact-rich assembly"></textarea>
+      </div>
+
+      <h2 style="margin-top:18px">4 · Output shape</h2>
 
       <fieldset>
         <legend>list by</legend>
@@ -204,7 +221,7 @@
     <!-- RIGHT: prompt -->
     <section class="panel">
       <div class="preview-head">
-        <h2>4 · Prompt</h2>
+        <h2>5 · Prompt</h2>
         <div class="btns">
           <button class="act primary" id="btnCopy" type="button">Copy</button>
           <button class="act" id="btnDownload" type="button">Download .md</button>
@@ -257,6 +274,13 @@ var VISUALIZE_GLOSS = {
   yes: "after the result Markdown file is written, also generate a self-contained interactive HTML visualization of the selected papers next to it (results/<slug>_<date>.html) — summary tiles, a papers-over-time chart, category and institution breakdowns, and a searchable/filterable grid of paper cards each with its working link; design it with the dataviz skill's palette and conventions (theme-aware, no external requests), render only already-verified papers and counts, and when several result files are combined, dedupe by id and add an overlap view. Optionally publish it with the Artifact tool for a shareable preview",
   no: "no visualization — result Markdown file only"
 };
+// The absolute discovery floor is a minimum-candidate-pool knob, independent of the final
+// paper count: even "top 10" must survey this many unique candidates before any filtering.
+var FLOOR_GLOSS = {
+  "100": "standard — survey at least 100 unique candidate papers before any filtering",
+  "150": "thorough — survey at least 150 unique candidate papers before any filtering",
+  "250": "exhaustive — survey at least 250 unique candidate papers before any filtering"
+};
 
 function val(id){ return (document.getElementById(id).value || "").trim(); }
 function radio(name){ return document.querySelector('input[name="' + name + '"]:checked').value; }
@@ -290,6 +314,19 @@ function buildPrompt(){
 
   var count = val("in-count") || "30";
   lines.push("Number of papers: " + count);
+
+  var floor = radio("floor");
+  lines.push("Discovery floor: at least " + floor + " unique candidates — " + FLOOR_GLOSS[floor] +
+    " (an absolute minimum on top of the skill's 3x/4x num_papers rule, so even a small final list is selected from a real field, not the first few that turned up)");
+
+  var subareas = val("in-subareas");
+  if(subareas){
+    var laneList = subareas.split(/\r?\n/).map(function(s){ return s.trim(); }).filter(Boolean);
+    if(laneList.length){
+      lines.push("Sub-areas to cover (dedicated discovery lanes): " + laneList.join("; ") +
+        " — give each its own discovery lane, and run at least max(6, 2 x number of sub-areas) lanes total, each meeting the per-lane search floor");
+    }
+  }
 
   var listBy = radio("listby");
   lines.push("List by: " + listBy + " — " + LIST_GLOSS[listBy]);
@@ -371,9 +408,10 @@ function wire(){
   });
   document.getElementById("btnDownload").addEventListener("click", downloadMd);
   document.getElementById("btnReset").addEventListener("click", function(){
-    ["in-field","in-topics","in-sota","in-other","in-since","in-cite-total","in-cite-month"]
+    ["in-field","in-topics","in-sota","in-other","in-since","in-cite-total","in-cite-month","in-subareas"]
       .forEach(function(id){ document.getElementById(id).value = ""; });
     document.getElementById("in-count").value = "30";
+    document.querySelector('input[name="floor"][value="100"]').checked = true;
     document.querySelector('input[name="listby"][value="category"]').checked = true;
     document.querySelector('input[name="present"][value="minimalism"]').checked = true;
     document.querySelector('input[name="institutions"][value="any"]').checked = true;

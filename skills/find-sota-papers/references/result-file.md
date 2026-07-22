@@ -67,10 +67,13 @@ constraints:
   include_classic: true
   multi_agent: auto                               # auto | yes | no
   num_papers: 30
+  discovery_floor: 100                            # absolute min unique candidates before filtering, independent of num_papers
+  sub_areas: null                                 # null when derived from topics; else the explicit lane list the user supplied
   relationship_graph: true                        # true | false
 funnel:                 # the Step-9 honesty trail; each number must be real
   found: 138            # raw candidates across all discovery lanes
   merged: 97            # after dedup by candidate_id — must clear the discovery floor
+  snowball_added: 18    # of merged, the count that entered via citation/reference expansion
   filtered: 44          # after date floor + relevance
   verified: 31          # LIVE after validation
   selected: 28          # actually listed below
@@ -154,9 +157,27 @@ P14 — disconnected: no citation link to any other selected paper.
 |---|---|---|
 | arXiv:2402.09876 | … | citation floor: 31 < 50 |
 
+## Discovery manifest
+
+<!-- one row per discovery lane; makes lane breadth and snowballing auditable -->
+
+| lane | seed queries | raw hits | curated | snowball-adds |
+|---|---|---:|---:|---:|
+| diffusion policies for manipulation | "diffusion policy", "flow-matching policy", "action chunking" | 41 | 12 | 3 |
+| sim-to-real RL | "sim-to-real reinforcement learning manipulation", … | 33 | 9 | 2 |
+| … | … | … | … | … |
+| **totals** | | **138** | **97** | **18** |
+
+Lane count must satisfy `max(6, 2 × S)` (S = named sub-areas); the `raw`,
+`curated`, and `snowball-adds` totals must reconcile with the funnel's `found`,
+`merged`, and `snowball_added`.
+
 ## Coverage & limitations
 
-- Discovery lanes run and what each covered.
+- Discovery lanes run and what each covered (the manifest above is the ledger).
+- Whether the effective discovery floor was `k × num_papers` or the absolute
+  `discovery_floor`, and if the escape hatch was used, that it was.
+- Snowball outcome: `snowball_added`, or the saturation note if expansion dried up.
 - Sources that refused automated fetch, and the fallback used.
 - Fields left `unknown` and why.
 
@@ -203,5 +224,9 @@ Open `evaluate_results_gui.html`, load this file, and save the result to
 - **`selected` must equal the number of papers under `## Papers`** (excluding the
   classic work) **and** the number of ledger rows. If the three disagree, the run
   is wrong, not the file.
+- **The discovery manifest reconciles with the funnel.** Its lane count meets
+  `max(6, 2 × S)`, and its `raw` / `curated` / `snowball-adds` column totals match
+  `found` / `merged` / `snowball_added`. A `snowball_added` of 0 means snowballing
+  did not run — a bug, not a finding (see `references/search-depth.md`).
 - Write the file **after** the report is final, in one pass. A partially written
   result file will still be picked up by the GUI as a complete run.

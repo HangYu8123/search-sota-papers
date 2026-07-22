@@ -7,12 +7,15 @@ resolves to `reputable` (Step 6 of `SKILL.md`).
 `institutions/`, one file per topic key, so a run loads only the lists it
 actually needs instead of every topic ever added.
 
-> **Provenance — read before trusting any ordering.** Every list in
-> `institutions/` is a **curated list supplied by the project owner**, snapshot
-> **2026-07-19**, reproduced as supplied and **not independently re-derived**.
-> No rank in it is verified. Treat membership as a coarse reputational band,
-> never as a measured score, and never report a tier or position back to the
-> user as though it were a published rank.
+> **Provenance — read before trusting any ordering.** `general.md` and
+> `robotics.md` are **curated lists supplied by the project owner**, snapshot
+> **2026-07-19**, reproduced as supplied. The seven specialty files
+> (`bioinformatics`, `ai4science`, `medical`, `autonomous-driving`, `ai-safety`,
+> `speech`, `recsys`) were **generated on 2026-07-20** alongside a regeneration
+> of `popular-topics.md`. **None** of these lists is independently re-derived and
+> **no rank in any of them is verified**. Treat membership as a coarse
+> reputational band, never as a measured score, and never report a tier or
+> position back to the user as though it were a published rank.
 
 The lists are deliberately **institution-level, not paper-level**. They say
 nothing about whether a given paper is good — only "did anyone on this author
@@ -24,6 +27,13 @@ list come from an organization on the list."
 |---|---|---|
 | `institutions/general.md` | 147 — Tiers 1–4 (AI-specific signals) plus a broad research-excellence band (general research indices) | **Always**, on every run of the gate. |
 | `institutions/robotics.md` | 10 robotics specialists, none duplicating a general entry | The topic matches `robotics`: robot learning, manipulation, locomotion, humanoids, embodied AI, navigation/SLAM, field robotics, robot foundation models. |
+| `institutions/bioinformatics.md` | 9 computational-biology specialists | The topic matches `bioinformatics`: computational biology, protein/genomics foundation models, structure prediction, sequence analysis, single-cell / multi-omics, molecular design. |
+| `institutions/ai4science.md` | 9 national labs and physics/forecasting centers | The topic matches `ai4science`: ML for physics/chemistry, materials discovery, interatomic potentials, weather/climate models, PDE / neural surrogates, scientific computing. |
+| `institutions/medical.md` | 9 clinical-AI and medical-imaging institutions | The topic matches `medical`: healthcare AI, clinical foundation models / LLMs, medical imaging, computational pathology and radiology, EHR modeling. |
+| `institutions/autonomous-driving.md` | 10 self-driving companies and automotive labs | The topic matches `autonomous-driving`: self-driving, robotaxis, driving world models, end-to-end driving, driving perception/prediction, ADAS. |
+| `institutions/ai-safety.md` | 10 safety, interpretability, and evaluation orgs | The topic matches `ai-safety`: alignment, mechanistic interpretability, sparse autoencoders, activation steering, scalable oversight, capability evaluations, AI control. |
+| `institutions/speech.md` | 8 speech-and-audio specialists | The topic matches `speech`: ASR, TTS / voice cloning, spoken language models, speaker/language ID, anti-spoofing, audio/music generation. |
+| `institutions/recsys.md` | 7 recommendation-and-retrieval specialists | The topic matches `recsys`: recommender systems, information retrieval, generative retrieval / semantic IDs, learning-to-rank, neural ranking. |
 
 **Every other topic — including every unkeyed topic in `popular-topics.md` —
 resolves to `general.md` alone.** That is the ordinary case, not a failure.

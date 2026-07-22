@@ -65,6 +65,8 @@ proceed (autonomous mode — do not stop to ask).
 | `include_classic` | No | `true` | If the selected SOTA papers share a common prior **classic** ancestor, include it (labeled). |
 | `multi_agent` | No | `auto` | `auto` uses real subagents when available and useful; `yes` explicitly requests parallel discovery/validation; `no` forces the equivalent sequential workflow. |
 | `num_papers` | No | `30` | Target number of papers to return. |
+| `discovery_floor` | No | `100` | Absolute minimum unique candidates (`merged`) to survey **before** filtering, independent of `num_papers`. The effective floor is `max(3×num_papers` (`4×` when `institutions` is `reputable`)`, discovery_floor)`, so a small list still surveys a real field. `100` standard / `150` thorough / `250` exhaustive. See Step 4 and `references/search-depth.md`. |
+| `sub_areas` | No | derived | Explicit list of sub-directions to give **dedicated discovery lanes**. When supplied, each becomes one lane and feeds the `max(6, 2×S)` lane-count floor; when omitted, decompose `topics` yourself. See Step 2. |
 | `relationship_graph` | No | `true` | Build a grounded relationship graph over the **selected** papers — citation edges, self-reported build-on edges, and disconnected components (separate research tracks). See Step 11. |
 | `result_file` | No | `auto` | `auto` writes `results/<slug>_<date>.md` whenever a file-write tool exists; an explicit path overrides the location; `no` suppresses the file. See Step 13. |
 | `visualize` | No | `false` | After the result file is written, also generate a self-contained interactive HTML visualization of the selected papers — and, when several result files are combined, their overlap. Off by default. See Step 14. |
@@ -134,9 +136,24 @@ Build queries from `field` + `topics` + `sota_requirements` +
 results; otherwise cover recent, highly cited, adopted, and adjacent work. Plan
 distinct discovery lanes that collectively clear the **discovery floor** below —
 they must aim past it, not at it, because every later stage only removes papers.
-Record every lane in a discovery manifest before dispatch, with its seed queries
-and source priorities written down — a lane whose queries were never planned
-tends to become a lane that ran one search.
+
+**Decompose the topic into lanes, and scale the lane count to breadth.** Create
+one lane per **named method, benchmark, sub-direction, or model family** in the
+constraints (plus adjacent-work and snowball lanes), and run at least
+`max(6, 2 × S)` lanes where `S` is the number of distinct named sub-areas. If the
+user supplied a `sub_areas` list, give each item its own lane and count it toward
+`S`; otherwise derive the sub-areas from the topic wording. A union topic
+("RL + imitation learning + diffusion policy + sim-to-real") therefore earns
+proportionally more lanes than a single-term one — that breadth is what let the
+deepest past runs survey an order of magnitude more work. See
+`references/search-depth.md` for the full rule.
+
+Record every lane in a **discovery manifest** before dispatch, with its seed
+queries and source priorities written down — a lane whose queries were never
+planned tends to become a lane that ran one search. Maintain the manifest as a
+table (`lane · seed queries · raw hits · curated · snowball-adds`) throughout the
+run; it becomes a section of the result file (Step 13) so an under-searched lane
+is auditable rather than hidden inside the aggregate `found` number.
 
 When the topic is broad, ambiguously named, or asks what is currently popular,
 read `references/topics/popular-topics.md` for dated query vocabulary. Treat it
@@ -158,6 +175,16 @@ famous, older, or off-topic papers, treat it as **shallow and rerun it** with
 sharper terms rather than accepting its ledger. Workers return ledgers; they do
 not write user-facing paper lists.
 
+**Snowball — mandatory, not optional.** Citation/reference expansion is the
+highest-yield way to reach non-obvious SOTA that keyword lanes miss, and the step
+runs most often skip. For the strongest `K = min(10, merged)` candidates, fetch
+**backward references** (what they build on) **and forward citations** (what cites
+them), and feed new in-scope papers back into the pool; run the same pass once
+more on the top verified papers after Step 5. Require
+`snowball_added >= max(10, num_papers / 3)` new merged candidates, or expand
+further until two consecutive rounds add nothing new. Track `snowball_added` in the
+funnel and the manifest — a run that snowballed nothing has not met the floor.
+
 ### 4. Merge and provisional-filter (main agent)
 Merge every ledger by stable candidate ID, then by canonical URL and normalized
 title. Preserve all evidence and flag disagreements rather than silently choosing
@@ -170,12 +197,16 @@ one value. Apply only:
 Do **not** apply citation thresholds yet: discovery counts are provisional until
 cross-source validation.
 
-**Then check the discovery floor** in `references/search-depth.md`: if
-`merged` is below `3 × num_papers` (`4 ×` when `institutions` is `reputable`),
-return to Step 3 for more rounds before validating anything. Validation is the
-expensive phase — running it on a set you already know is too small spends the
-budget in the wrong place. Proceed under the floor only via the escape hatch, and
-record that you used it.
+**Then check the discovery floor** in `references/search-depth.md`: require
+`merged >= max(3 × num_papers` (`4 ×` when `institutions` is `reputable`)`,
+discovery_floor)`. The absolute `discovery_floor` (default 100) is the part that
+bites for a small list — "top 10" still means surveying ~100 unique candidates
+before filtering, so the final ten come from a real field, not the first ten that
+appeared. If `merged` is below the effective floor, return to Step 3 for more
+rounds before validating anything. Validation is the expensive phase — running it
+on a set you already know is too small spends the budget in the wrong place.
+Proceed under the floor only via the escape hatch, and record that you used it and
+which floor bound.
 
 ### 5. Validate (parallel, adversarial, mandatory)
 Build the validation coverage manifest and dispatch source-specialist lanes or
@@ -406,9 +437,18 @@ P15 — disconnected: no citation link to any other selected paper.
 - Search was **iterative, not single-shot**: every lane ran seed → harvest →
   refine → snowball to saturation, and the per-lane (≥6 searches / ≥5 fetches)
   and whole-task floors were met. Shallow lanes were rerun, not accepted.
-- The **discovery floor** held: `merged ≥ 3 × num_papers` (`4 ×` when
-  `institutions` is `reputable`) before validation began — or the escape hatch's
-  three conditions were all met and the shortfall in coverage was reported.
+- **Lane count scaled to breadth:** at least `max(6, 2 × S)` discovery lanes ran
+  (`S` = named sub-areas / supplied `sub_areas`), each recorded in the discovery
+  manifest with its queries, raw hits, curated candidates, and snowball-adds.
+- **Snowballing met its floor:** the strongest candidates and top verified papers
+  had backward references and forward citations fetched, and
+  `snowball_added ≥ max(10, num_papers / 3)` new candidates entered the pool (or
+  two expansion rounds saturated). `snowball_added` is recorded, and it is not 0.
+- The **discovery floor** held: `merged ≥ max(3 × num_papers` (`4 ×` when
+  `institutions` is `reputable`)`, discovery_floor)` before validation began — so
+  even a small `num_papers` surveyed the absolute floor — or the escape hatch's
+  three conditions were all met, the binding floor was named, and the shortfall in
+  coverage was reported.
 - When `relationship_graph` was on: every `cites` edge came from fetched
   reference/citation data, every `builds-on` edge carries the paper's own words,
   separate tracks were reported as disconnected components rather than asserted
@@ -435,6 +475,9 @@ P15 — disconnected: no citation link to any other selected paper.
   the number of verification-ledger rows all agree; every dropped candidate has a
   concrete reason, and each LIVE row preserves canonical, citation, SOTA/content,
   and applicable affiliation evidence URLs.
+- The result file carries a **discovery manifest** whose lane count meets
+  `max(6, 2 × S)` and whose `raw` / `curated` / `snowball-adds` totals reconcile
+  with the funnel's `found` / `merged` / `snowball_added`.
 - When `visualize` was on: a self-contained HTML visualization was written next to
   the result file, built with the `dataviz` skill's palette, making no external
   request, and rendering only already-verified papers, links, and counts — adding
@@ -472,8 +515,10 @@ P15 — disconnected: no citation link to any other selected paper.
 
 - `references/sources.md` — capability matrix, current scholarly API templates,
   quotas, failure handling, and fallback ladder. Read before Step 2.
-- `references/search-depth.md` — iterative search, lane budgets, effort floors,
-  and discovery gate. Read before Step 2 and pass its contract to workers.
+- `references/search-depth.md` — iterative search, lane decomposition and count
+  (`max(6, 2×S)`), effort floors, the mandatory snowball floor, and the discovery
+  gate (`max(k×num_papers, discovery_floor)`). Read before Step 2 and pass its
+  contract to workers.
 - `references/orchestration.md` — discovery/validation worker schemas, evidence
   URL fields, phase barriers, and recovery. Read before creating workers.
 - `references/relationship-graph.md` — citation/build-on edge retrieval and
