@@ -63,6 +63,11 @@ shortfall and why.
 - **Evaluation pipeline.** Rate runs with `evaluate_results_gui.html`, export to
   preference pairs / rubric rewards / RLVR checks via `evaluations/export.py`.
   Schema and reward math: `EVALUATION.md`.
+- **Paywalls aren't dead ends.** A locked or paid resource is first resolved through
+  open access (Unpaywall, CORE, arXiv/author copies), then through
+  [paywallbuster.me](https://paywallbuster.me/) — whose result is itself fetched to
+  confirm the paper is genuinely readable. A returned link is a lead, not access;
+  anything still unread stays unverified and is dropped.
 - **Explicit capability fallbacks.** Live web search and HTTPS fetch are required.
   Semantic Scholar batch calls use optional HTTP POST and fall back to individual
   GETs; result files require optional filesystem writes. A free OpenAlex API key

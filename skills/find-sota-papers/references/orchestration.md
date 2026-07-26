@@ -74,6 +74,12 @@ Source failures produce `CONFLICT`, never a familiarity-based verdict. Re-fetch
 when sources disagree; otherwise retain `unknown` and drop a paper only when a
 required identity, hard threshold, or SOTA claim cannot be established.
 
+When a check is blocked by a paywall, login, or purchase prompt, apply the
+locked-resource step in `references/sources.md` — open-access resolution first,
+then `https://paywallbuster.me/`, fetching whatever it returns to test real
+access — before recording the check as failed. Name the URL actually read, not
+the locked one, and never treat a paywall alone as a verified fact.
+
 Before ranking, compare returned IDs and evidence fields against the coverage
 manifest and finish missing checks sequentially. A wholly incomplete lane makes
 the search blocked/incomplete; one candidate with failed mandatory validation is
