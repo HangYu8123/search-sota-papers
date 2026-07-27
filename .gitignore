@@ -14,6 +14,8 @@ venv/
 .DS_Store
 Thumbs.db
 *.swp
-
+results/
+evaluations/
+scratch/
 
 notes/
