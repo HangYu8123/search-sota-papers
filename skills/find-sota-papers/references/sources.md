@@ -15,6 +15,9 @@ Read this file before planning discovery. It is the operational source guide;
   file was skipped.
 - **Optional subagents:** parallelize independent discovery/validation lanes only
   when isolated workers have the same live-retrieval capabilities.
+- **Optional code execution:** when the harness can run Python 3, the bundled
+  `scripts/` replace bulk fetch loops (see *Bundled helper scripts* below).
+  Without it, nothing changes — the fetch-based flow is the baseline.
 
 ## Current API templates
 
@@ -39,6 +42,27 @@ https://api.openalex.org/works?search=your%20phrase&filter=from_publication_date
 
 # Crossref — bibliographic search; rows at most 1,000
 https://api.crossref.org/works?query.bibliographic=your+terms&filter=from-pub-date:2024-01-01&sort=is-referenced-by-count&order=desc&rows=50&select=DOI,title,issued,is-referenced-by-count,container-title&mailto=you@example.com
+
+# Semantic Scholar — a paper's structured reference list (survey-mining lane);
+# paginate with offset when a survey has more references than one page returns
+https://api.semanticscholar.org/graph/v1/paper/ARXIV:2505.20098/references?fields=title,year,venue,citationCount,externalIds&limit=1000
+
+# Semantic Scholar — Recommendations API ("similar papers"); free, key optional;
+# limit accepted up to 500. Default pool is RECENT papers and legitimately
+# returns [] for older anchors — retry with from=all-cs before concluding anything.
+https://api.semanticscholar.org/recommendations/v1/papers/forpaper/ARXIV:2406.09246?fields=title,year,venue,citationCount,externalIds&limit=100
+https://api.semanticscholar.org/recommendations/v1/papers/forpaper/ARXIV:1706.03762?from=all-cs&fields=title,year,citationCount&limit=100
+
+# Hugging Face Papers — community-surfaced daily papers and paper search; the
+# earliest visible surface for industry / non-US-lab releases
+https://huggingface.co/api/daily_papers?date=2026-08-07&limit=50
+https://huggingface.co/api/papers/search?q=vision-language-action
+
+# OpenAlex — topic enumeration: resolve the topic id once, then walk recent
+# works under it by date. A recall complement to keyword search: it finds papers
+# whose abstracts use vocabulary you never harvested.
+https://api.openalex.org/topics?search=robot%20manipulation&per_page=5&select=id,display_name,keywords
+https://api.openalex.org/works?filter=topics.id:T10653,from_publication_date:2026-01-01&sort=publication_date:desc&per_page=100&select=id,doi,display_name,publication_date,cited_by_count,primary_location&api_key=YOUR_KEY
 ```
 
 ## Failure and quota rules
@@ -61,6 +85,24 @@ https://api.crossref.org/works?query.bibliographic=your+terms&filter=from-pub-da
   5 requests/second with concurrency 1; the polite pool is 10 requests/second
   with concurrency 3. Its reference count is not interchangeable with another
   provider's citation count.
+- **Semantic Scholar Recommendations:** shares the graph API's anonymous pool
+  and 429 behavior. `from=recent` (the default) draws from a recent-papers pool
+  and legitimately returns an empty list for older anchor papers — switch to
+  `from=all-cs` before concluding a paper has no similar work; `limit` is
+  accepted up to 500 (verified 2026-08-11). Recommendations are a discovery
+  surface, not evidence: verify every recommended paper like any keyword hit.
+- **Hugging Face Papers:** unauthenticated and undocumented/unversioned — treat
+  the response shape defensively. `paper.id` carries the arXiv id, and
+  `daily_papers` accepts `?date=YYYY-MM-DD` (both verified 2026-08-11). Listings
+  are community-curated: use them to discover industry and non-US-lab releases
+  early, then resolve to the arXiv/DOI record before relying on any field.
+- **OpenAlex topics:** `search=` on `/topics` matches topic display names and
+  keywords, not arbitrary phrases — query field-level vocabulary ("robot
+  manipulation", not a model name), and confirm the returned topic's `keywords`
+  actually fit before enumerating its works. Quota note (observed 2026-08-11):
+  a `search=` call billed `meta.cost_usd` 0.001 while a filter-only `/works`
+  call billed 0.0001 — resolve the topic id once, then walk with filters; the
+  enumeration itself is nearly free.
 
 Official references: `https://info.arxiv.org/help/api/user-manual.html` ·
 `https://api.semanticscholar.org/api-docs/graphs` ·
@@ -134,11 +176,36 @@ not present them as API calls (verified 2026-07-20):
   `acl-anthology` PyPI package; individual `aclanthology.org` paper pages fetch
   normally and are the practical route.
 
+## Bundled helper scripts (optional capability)
+
+When the harness can execute Python 3 (every CLI harness can), prefer the
+bundled scripts in the skill's `scripts/` directory for bulk work: they replace
+dozens of model-issued fetches with one command, keep the arXiv politeness rules
+automatically, and move 429 handling out of the agent loop. Harnesses without
+code execution keep the fetch-based flow above — nothing else changes.
+
+- `scripts/arxiv_sweep.py` — paginated arXiv harvester. Walks a full
+  `search_query` × `submittedDate` window to exhaustion (3 s delay, exponential
+  backoff on 429/5xx, resumable) and writes one JSON line per paper. Use it for
+  exhaustive category sweeps whose raw-hit counts would otherwise silently
+  truncate at one hand-fetched page.
+- `scripts/resolve_ids.py` — batch metadata/citation resolver. arXiv ids or DOIs
+  in, one JSON line per paper out, via the Semantic Scholar batch endpoint
+  (≤500 ids per POST) or OpenAlex (`--source openalex`, DOI-filter batches).
+
+Both scripts are stdlib-only Python 3 and read API keys plus the polite-pool
+`mailto` from the environment (`S2_API_KEY`, `OPENALEX_API_KEY`, `SOTA_MAILTO`)
+or from `~/.config/find-sota-papers/config.json`, which
+`python install.py --configure-keys` writes. Script output is still only
+candidate leads — every paper passes the same validation as any fetched result.
+Exact flags: `scripts/README.md`.
+
 ## Optional discovery products
 
 Edison Scientific/FutureHouse, OpenScholar/Asta, PaperQA2, Elicit, Consensus,
-Undermind, alphaXiv, CodeSOTA, Hugging Face Papers, and vendor deep-research tools
-are optional. Use one only when the harness actually exposes it; never claim an
-unavailable product was called. Treat the Papers With Code website and its
+Undermind, alphaXiv, CodeSOTA, and vendor deep-research tools are optional. Use
+one only when the harness actually exposes it; never claim an unavailable
+product was called. (Hugging Face Papers has a callable API and is templated
+above, so it no longer belongs on this products list.) Treat the Papers With Code website and its
 leaderboard data as archival because the service became unavailable/redirected
 in 2025; do not claim a formal Meta sunset without a primary source.

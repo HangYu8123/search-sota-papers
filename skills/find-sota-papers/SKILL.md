@@ -86,6 +86,13 @@ or out of quota, fall back to the harness's own web search tool and fetch the
 pages it returns; that is the ladder's designed last rung, and the way to reach a
 source with no API at all. Never pay a scraper service.
 
+When the harness can execute Python 3, prefer the bundled `scripts/` for bulk
+work — `scripts/arxiv_sweep.py` (exhaustive, resumable arXiv window sweeps) and
+`scripts/resolve_ids.py` (batch metadata/citation resolution). They read API
+keys from the config that `install.py --configure-keys` writes; see the
+*Bundled helper scripts* section of `references/sources.md`. Without code
+execution, the fetch-based flow is unchanged.
+
 When a resource is locked behind a paywall, a login, or a purchase prompt, submit
 its URL or DOI to `https://paywallbuster.me/`, then **fetch what it returns** to
 check whether the resource is genuinely accessible there. A returned link is a
@@ -146,7 +153,13 @@ they must aim past it, not at it, because every later stage only removes papers.
 **Decompose the topic into lanes, and scale the lane count to breadth.** Create
 one lane per **named method, benchmark, sub-direction, or model family** in the
 constraints (plus adjacent-work and snowball lanes), and run at least
-`max(6, 2 × S)` lanes where `S` is the number of distinct named sub-areas. If the
+`max(6, 2 × S)` lanes where `S` is the number of distinct named sub-areas.
+**Always include the three mandatory high-recall harvest lanes** defined in
+`references/search-depth.md` — survey-mining (`H-survey`: pull recent surveys'
+structured reference lists), curated-list (`H-list`: GitHub awesome-lists and
+conference-collection repos), and venue-sweep (`H-venue`: accepted-paper
+listings of the field's top venues) — they catch what no keyword lane can
+phrase, and they count toward the lane floor but are required regardless of it. If the
 user supplied a `sub_areas` list, give each item its own lane and count it toward
 `S`; otherwise derive the sub-areas from the topic wording. A union topic
 ("RL + imitation learning + diffusion policy + sim-to-real") therefore earns
@@ -446,6 +459,11 @@ P15 — disconnected: no citation link to any other selected paper.
 - **Lane count scaled to breadth:** at least `max(6, 2 × S)` discovery lanes ran
   (`S` = named sub-areas / supplied `sub_areas`), each recorded in the discovery
   manifest with its queries, raw hits, curated candidates, and snowball-adds.
+- **The three harvest lanes each ran:** survey-mining, curated-list, and
+  venue-sweep appear in the manifest (`H-survey` / `H-list` / `H-venue`), each
+  either harvesting candidates or recording its ≥3 locating queries and the
+  demonstrated-empty result. Every harvested paper was validated like any other
+  candidate; no list, survey, or program page was cited as verification.
 - **Snowballing met its floor:** the strongest candidates and top verified papers
   had backward references and forward citations fetched, and
   `snowball_added ≥ max(10, num_papers / 3)` new candidates entered the pool (or
@@ -544,3 +562,10 @@ P15 — disconnected: no citation link to any other selected paper.
 - `references/topics/institutions/` — the lists themselves, one file per topic
   key: `general.md` (always in force) and `robotics.md` (additive, robotics
   topics only). Read only the files the index selects.
+- `scripts/arxiv_sweep.py` — optional-capability bulk arXiv harvester: walks a
+  query × date window to exhaustion, politely and resumably, writing JSONL. Use
+  for exhaustive sweeps when the harness can run Python 3.
+- `scripts/resolve_ids.py` — optional-capability batch resolver: arXiv ids/DOIs
+  to metadata + citation counts via the S2 batch endpoint or OpenAlex.
+- `scripts/README.md` — flags, output fields, and the API-key config both
+  scripts read (`install.py --configure-keys` writes it).

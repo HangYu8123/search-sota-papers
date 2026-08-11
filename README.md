@@ -54,6 +54,15 @@ shortfall and why.
   the vocabulary the literature actually uses, re-searches with those terms, then walks
   the citation graph in both directions — and keeps going until two consecutive rounds
   turn up nothing new.
+- **Harvest lanes, not just keywords.** Every run also mines recent surveys'
+  structured reference lists, GitHub awesome-lists and conference-collection repos,
+  and top-venue accepted-paper listings — the high-recall sources that catch model
+  lineages, industry releases, and peer-reviewed work no keyword query can phrase.
+- **Bulk enumeration scripts.** On harnesses with code execution, bundled
+  stdlib-only helpers (`skills/find-sota-papers/scripts/`) sweep whole arXiv
+  category × date windows to exhaustion and batch-resolve metadata/citations via
+  Semantic Scholar or OpenAlex — one polite, resumable command instead of dozens of
+  rate-limited fetches.
 - **Multi-agent acceleration.** When the host supports subagents, distinct search
   directions run in parallel and candidates are validated across scholarly sources in a
   separate parallel wave. Falls back to sequential execution transparently.
@@ -71,7 +80,9 @@ shortfall and why.
 - **Explicit capability fallbacks.** Live web search and HTTPS fetch are required.
   Semantic Scholar batch calls use optional HTTP POST and fall back to individual
   GETs; result files require optional filesystem writes. A free OpenAlex API key
-  is strongly recommended because anonymous daily credit is very limited.
+  is strongly recommended because anonymous daily credit is very limited — run
+  `python install.py --configure-keys` to store OpenAlex/Semantic Scholar keys and
+  a polite-pool contact email where the bundled scripts find them.
   `install.py` itself needs only Python 3 and has no dependencies.
 
 ## Install
@@ -79,6 +90,7 @@ shortfall and why.
 ```bash
 python install.py --target packages   # build Claude + ChatGPT packages in dist/
 python install.py --dry-run           # preview all installs, change nothing
+python install.py --configure-keys    # store API keys for the bundled scripts
 ```
 
 Or pick a target:
@@ -146,6 +158,7 @@ intuition, core contribution, experiment setup, and results vs. named baselines.
 |---|---|
 | `skills/find-sota-papers/SKILL.md` | The skill itself, in the open [Agent Skills](https://agentskills.io) format. |
 | `skills/find-sota-papers/references/` | Routed API, search-depth, orchestration, graph, result-schema, topic, and institution guidance. |
+| `skills/find-sota-papers/scripts/` | Optional bulk helpers: exhaustive arXiv sweeps and batch id resolution (stdlib-only Python 3). |
 | `find_papers_gui.html` | Prompt builder — set constraints, copy the prompt. |
 | `evaluate_results_gui.html` | Score a finished run and save feedback. |
 | `install.py` | Install or package for Claude, Codex, ChatGPT. |

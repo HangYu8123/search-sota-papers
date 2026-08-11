@@ -12,6 +12,8 @@ Examples:
     python install.py --target chatgpt
     python install.py --target packages
     python install.py --dry-run
+    python install.py --configure-keys
+    python install.py --configure-keys --set openalex_api_key=... --set mailto=you@example.com
 """
 
 import argparse
@@ -29,6 +31,26 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SKILL_SRC = os.path.join(HERE, "skills", SKILL_NAME)
 MANIFEST_SRC = os.path.join(HERE, ".codex-plugin", "plugin.json")
 DIST_DIR = os.path.join(HERE, "dist")
+CONFIG_PATH = os.environ.get(
+    "FIND_SOTA_PAPERS_CONFIG",
+    os.path.join(os.path.expanduser("~"), ".config", SKILL_NAME, "config.json"),
+)
+
+# key -> (prompt label, why it helps)
+CONFIG_KEYS = {
+    "openalex_api_key": (
+        "OpenAlex API key",
+        "free at openalex.org; anonymous credit is ~10 searches/day",
+    ),
+    "s2_api_key": (
+        "Semantic Scholar API key",
+        "free at semanticscholar.org/product/api; anonymous traffic shares a throttled pool",
+    ),
+    "mailto": (
+        "Contact email (mailto)",
+        "identifies you to Crossref/OpenAlex polite pools",
+    ),
+}
 
 # target -> (label, user-scope path parts, project-scope path parts)
 SKILL_TARGETS = {
@@ -76,7 +98,7 @@ def plugin_files():
     """Yield (absolute source, plugin-relative path) pairs."""
     yield MANIFEST_SRC, os.path.join(".codex-plugin", "plugin.json")
     for root, dirs, files in os.walk(SKILL_SRC):
-        dirs.sort()
+        dirs[:] = sorted(d for d in dirs if d != "__pycache__")
         files.sort()
         for filename in files:
             source = os.path.join(root, filename)
@@ -164,7 +186,7 @@ def write_skill_zip(output_path):
     """Build Claude's upload ZIP with the skill folder at the archive root."""
     with zipfile.ZipFile(output_path, "w", zipfile.ZIP_DEFLATED) as archive:
         for root, dirs, files in os.walk(SKILL_SRC):
-            dirs.sort()
+            dirs[:] = sorted(d for d in dirs if d != "__pycache__")
             files.sort()
             for filename in files:
                 source = os.path.join(root, filename)
@@ -222,6 +244,64 @@ def build_packages(kind, dry_run):
         print("    built {} -> {}".format(label, output_path))
 
 
+def configure_keys(assignments):
+    """Write API keys for the bundled scripts to CONFIG_PATH (chmod 600).
+
+    The skill's scripts (scripts/arxiv_sweep.py, scripts/resolve_ids.py) read
+    this file; S2_API_KEY / OPENALEX_API_KEY / SOTA_MAILTO env vars override it.
+    """
+    config = {}
+    if os.path.exists(CONFIG_PATH):
+        try:
+            with open(CONFIG_PATH, "r", encoding="utf-8") as handle:
+                loaded = json.load(handle)
+            if isinstance(loaded, dict):
+                config = loaded
+        except (OSError, ValueError) as exc:
+            sys.exit("error: cannot read existing {}: {}".format(CONFIG_PATH, exc))
+
+    if assignments:
+        for assignment in assignments:
+            key, separator, value = assignment.partition("=")
+            if not separator or key not in CONFIG_KEYS:
+                sys.exit(
+                    "error: --set expects KEY=VALUE with KEY one of: {}".format(
+                        ", ".join(sorted(CONFIG_KEYS))
+                    )
+                )
+            if value:
+                config[key] = value
+            else:
+                config.pop(key, None)
+    else:
+        if not sys.stdin.isatty():
+            sys.exit(
+                "error: no terminal to prompt on — pass --set KEY=VALUE "
+                "(keys: {})".format(", ".join(sorted(CONFIG_KEYS)))
+            )
+        print("Configure API keys for the bundled scripts.")
+        print("Enter to keep the current value, '-' to clear it.\n")
+        for key, (label, why) in CONFIG_KEYS.items():
+            current = config.get(key)
+            shown = "set" if current and key.endswith("_key") else (current or "unset")
+            entered = input("  {} [{}] — {}: ".format(label, shown, why)).strip()
+            if entered == "-":
+                config.pop(key, None)
+            elif entered:
+                config[key] = entered
+
+    os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
+    fd = os.open(CONFIG_PATH, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as handle:
+        json.dump(config, handle, indent=2)
+        handle.write("\n")
+    try:
+        os.chmod(CONFIG_PATH, 0o600)
+    except OSError:
+        pass
+    print("wrote {} ({})".format(CONFIG_PATH, ", ".join(sorted(config)) or "empty"))
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Install Find SOTA Papers for Claude and ChatGPT/Codex."
@@ -263,7 +343,31 @@ def main():
     parser.add_argument(
         "--dry-run", action="store_true", help="Show actions without changing files."
     )
+    parser.add_argument(
+        "--configure-keys",
+        action="store_true",
+        help=(
+            "Write API keys for the bundled scripts to {} and exit "
+            "(prompts, or takes --set)."
+        ).format(CONFIG_PATH),
+    )
+    parser.add_argument(
+        "--set",
+        dest="assignments",
+        action="append",
+        metavar="KEY=VALUE",
+        help=(
+            "With --configure-keys: set a key non-interactively (repeatable; "
+            "empty value clears). Keys: " + ", ".join(sorted(CONFIG_KEYS))
+        ),
+    )
     args = parser.parse_args()
+
+    if args.configure_keys:
+        configure_keys(args.assignments)
+        return
+    if args.assignments:
+        sys.exit("error: --set only makes sense with --configure-keys")
 
     validate_sources()
     target = "claude-zip" if args.target == "zip" else args.target
